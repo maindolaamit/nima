@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import re
 import shutil
 
@@ -7,8 +8,11 @@ from bs4 import BeautifulSoup
 import pandas as pd
 
 URL_PREFIX = 'http://www.dpchallenge.com/image.php?IMAGE_ID='
-DOWNLOAD_DIR = './images/'
-
+PROJECT_ROOT_DIR = Path(__file__).resolve().parent.parent.parent
+AVA_DATASET_DIR = os.path.join(PROJECT_ROOT_DIR, 'data', 'AVA')
+DOWNLOAD_DIR = os.path.join(AVA_DATASET_DIR, 'images')
+AVA_FILE = os.path.join(AVA_DATASET_DIR,'AVA.txt')
+img_count = 0
 
 def print_msg(message, level=0):
     """ Print the message in formatted way and writes to the log """
@@ -38,16 +42,18 @@ def download_image(image_url, filename):
     # Open the url image, set stream to True, this will return the stream content.
     r = requests.get(image_url, stream=True)
     # Check if the image was retrieved successfully
+    global img_count
     if r.status_code == 200:
+        img_count +=1
         # Set decode_content value to True, otherwise the downloaded image file's size will be zero.
         r.raw.decode_content = True
 
         # Open a local file with wb ( write binary ) permission.
         with open(filename, 'wb') as f:
             shutil.copyfileobj(r.raw, f)
-        print_msg(f'Image downloaded successfully : {filename}', 2)
+        print_msg(f'Image downloaded successfully : {filename}',1)
     else:
-        print_msg('Image could not be retrieved.', 2)
+        print_msg(f'Image could not be retrieved : {image_url}.',1)
 
 
 def get_ava_image(url, image_id):
@@ -59,7 +65,7 @@ def get_ava_image(url, image_id):
     filename = os.path.join(DOWNLOAD_DIR, f'{image_id}.jpg')
     # Check if image already exists
     if os.path.isfile(filename):
-        print_msg('Image already exists.', 1)
+        # print_msg('Image already exists.', 1)
         return
     else:
         soup = get_request_soup(url)
@@ -72,7 +78,7 @@ def get_ava_image(url, image_id):
         if images_result is not None and len(images_result) > 0:
             download_image(images_result[0], filename)
         else:
-            print_msg('Unable to get any ava image in the url.', 1)
+            print_msg(f'Unable to get any ava image for url : {url}', 1)
 
 
 if __name__ == '__main__':
@@ -81,11 +87,13 @@ if __name__ == '__main__':
         os.mkdir(DOWNLOAD_DIR)
 
     # read the dataframe to fetch image id
-    df = pd.read_csv('AVA.txt', sep=' ', header=None)
+
+    df = pd.read_csv(AVA_FILE, sep=' ', header=None)
     # Loop for each image id
-    for img_id in df.iloc[:20, 1].tolist():
+    print_msg('Downloading dataset')
+    for img_id in df.iloc[:200, 1].tolist():
         img_url = f"{URL_PREFIX}{img_id}"
-        print_msg(f'Downloading image ... {img_url}')
+        # print_msg(f'Downloading image ... {img_url}')
         get_ava_image(img_url, img_id)
 
-    print_msg('downloaded AVA dataset.')
+    print_msg(f'downloaded AVA dataset, image count {img_count}.')
