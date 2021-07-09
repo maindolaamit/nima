@@ -91,7 +91,7 @@ if __name__ == '__main__':
     df = pd.read_csv(AVA_FILE, sep=' ', header=None)
     # Loop for each image id
     print_msg('Downloading dataset')
-    for img_id in df.iloc[:200, 1].tolist():
+    for img_id in df.iloc[:400, 1].tolist():
         img_url = f"{URL_PREFIX}{img_id}"
         # print_msg(f'Downloading image ... {img_url}')
         get_ava_image(img_url, img_id)

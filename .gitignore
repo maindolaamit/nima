@@ -23,6 +23,7 @@ lib64/
 parts/
 sdist/
 var/
+dask-worker-space/
 wheels/
 *.egg-info/
 .installed.cfg
