@@ -11,8 +11,9 @@ URL_PREFIX = 'http://www.dpchallenge.com/image.php?IMAGE_ID='
 PROJECT_ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 AVA_DATASET_DIR = os.path.join(PROJECT_ROOT_DIR, 'data', 'AVA')
 DOWNLOAD_DIR = os.path.join(AVA_DATASET_DIR, 'images')
-AVA_FILE = os.path.join(AVA_DATASET_DIR,'AVA.txt')
+AVA_FILE = os.path.join(AVA_DATASET_DIR, 'AVA.txt')
 img_count = 0
+
 
 def print_msg(message, level=0):
     """ Print the message in formatted way and writes to the log """
@@ -44,16 +45,16 @@ def download_image(image_url, filename):
     # Check if the image was retrieved successfully
     global img_count
     if r.status_code == 200:
-        img_count +=1
+        img_count += 1
         # Set decode_content value to True, otherwise the downloaded image file's size will be zero.
         r.raw.decode_content = True
 
         # Open a local file with wb ( write binary ) permission.
         with open(filename, 'wb') as f:
             shutil.copyfileobj(r.raw, f)
-        print_msg(f'Image downloaded successfully : {filename}',1)
+        print_msg(f'Image downloaded successfully : {filename}', 1)
     else:
-        print_msg(f'Image could not be retrieved : {image_url}.',1)
+        print_msg(f'Image could not be retrieved : {image_url}.', 1)
 
 
 def get_ava_image(url, image_id):
@@ -87,7 +88,6 @@ if __name__ == '__main__':
         os.mkdir(DOWNLOAD_DIR)
 
     # read the dataframe to fetch image id
-
     df = pd.read_csv(AVA_FILE, sep=' ', header=None)
     # Loop for each image id
     print_msg('Downloading dataset')

@@ -1,42 +1,49 @@
 import importlib
-from keras.models import Model
-from keras.layers import Dropout, Dense
+# import os
+# from pathlib import Path
+import os
+from pathlib import Path
+from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.layers import Dropout, Dense
+from src.model.loss import earth_movers_distance
 
-from loss import earth_movers_distance
+MODELS_FILE_DIR = Path(__file__).resolve().parent
+MODELS_JSON_FILE_PATH = os.path.join(MODELS_FILE_DIR, 'models.json')
 
 
 class NIMA:
     def __init__(self, base_model_name, weights='imagenet',
-                 input_shape=(224, 224), loss=earth_movers_distance):
+                 input_shape=(224, 224, 3), loss=earth_movers_distance):
         """
         Constructor method
         :param base_model_name: Base model name
         :param weights: Weights of the model, initialized to imagenet
         """
-        models = {'mobilenet': 'MobileNetV2',
-                  'nasnet': 'NASNetMobile',
-                  'efficientnet': 'EfficientNetB3'}
-        if base_model_name not in models:
-            raise Exception(f"Invalid model name, should have one of the value {models.keys()}")
-        self.base_model_name = models[base_model_name]
         self.weights = weights
         self.input_shape = input_shape
-        self.base_module = self.__get_base_module(self.base_model_name)
+        self._get_base_module(base_model_name)
         self.base_model = None
         self.model = None
         self.loss = loss
 
-    @staticmethod
-    def __get_base_module(model_name):
+    def _get_base_module(self, model_name):
         """
         Get the base model based on the base model name
         :param model_name: Base model name
         :return: Base models' library
         """
-        return importlib.import_module(f'tensorflow.keras.applications.{model_name}')
+        import json
+        with open(MODELS_JSON_FILE_PATH) as model_json_file:
+            models = json.load(model_json_file)
+        if model_name not in models.keys():
+            raise Exception(f"Invalid model name, should have one of the value {models.keys()}")
+        self.base_model_name = models[model_name]['model_name']
+        model_package = models[model_name]['model_package']
+        print(f"{model_package}.{self.base_model_name}")
+        self.base_module = importlib.import_module(model_package)
 
-    def build_(self):
+    def build(self):
         """
         Build the CNN model for Neural Image Assessment
         """
@@ -47,7 +54,7 @@ class NIMA:
                                    pooling='avg', include_top=False)
 
         # add dropout and dense layer
-        x = Dropout(.5)(base_cnn.output)
+        x = Dropout(.2)(self.base_model.output)
         x = Dense(10, activation='softmax')(x)
         # Assign the class model
         self.model = Model(self.base_model.input, x)
@@ -56,11 +63,18 @@ class NIMA:
         """
         Compile the Model
         """
-        self.model.compile(optimizer=Adam, loss=self.loss)
+        self.model.compile(optimizer=Adam(), loss=self.loss)
 
-    def preprocess_input(self):
+    def get_base_model_attr(self):
+        preprocess_input = getattr(self.base_module, 'preprocess_input')
+        decode_predictions = getattr(self.base_module, 'decode_predictions')
+        predict = getattr(self.base_model, 'predict')
+        return preprocess_input, decode_predictions, predict
+
+    def preprocess_input(self, input):
         """
         Return the model's preprocess_input
         """
-        # return self.model.preprocess_input
-        return getattr(self.base_module, 'preprocess_input')
+        return self.model.preprocess_input
+        # preprocess_input = getattr(self.base_module, 'preprocess_input')
+        # return preprocess_input(input)

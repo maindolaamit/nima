@@ -39,9 +39,7 @@ def get_rating_columns():
 
 def get_present_image_names_df():
     import glob
-    from pathlib import Path
     image_files = glob.glob('*.jpg')
-    filenames = [(Path(file)).name for file in image_files][:5]
     df_image = pd.DataFrame(image_files, columns=['image_id'])
     return df_image
 

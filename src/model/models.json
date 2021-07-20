@@ -1,0 +1,14 @@
+{
+  "mobilenet": {
+    "model_package": "tensorflow.keras.applications.mobilenet_v2",
+    "model_name": "MobileNetV2"
+  },
+  "nasnet": {
+    "model_package": "tensorflow.keras.applications.nasnet",
+    "model_name": "NASNetMobile"
+  },
+  "efficientnet": {
+    "model_package": "tensorflow.keras.applications.efficientnet",
+    "model_name": "EfficientNetB3"
+  }
+}

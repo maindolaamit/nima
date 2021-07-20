@@ -1,0 +1,8 @@
+Keras~=2.4.3
+tensorflow~=2.4.1
+requests~=2.25.1
+pandas~=1.1.5
+bs4~=0.0.1
+beautifulsoup4~=4.9.3
+modin~=0.8.3
+setuptools
