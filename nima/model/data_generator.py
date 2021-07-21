@@ -97,15 +97,3 @@ class NimaDataGenerator(keras.utils.Sequence):
                           f' These filename(s) will be ignored.')
         return df[mask]
 
-
-class TestDataGenerator():
-    def __init__(self, image_dir, batch_size=32, target_size=(256, 256)):
-        self.image_dir = image_dir
-        self.batch_size = batch_size
-        self.target_size = target_size
-        self.dataget = ImageDataGenerator(
-            horizontal_flip=True, batch_size=batch_size)
-
-    def get_data(self):
-        return self.dataget.flow_from_directory(self.image_dir, shuffle=True, target_size=self.target_size,
-                                                class_mode=None)
