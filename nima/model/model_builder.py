@@ -6,7 +6,7 @@ from pathlib import Path
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.layers import Dropout, Dense
-from src.model.loss import earth_movers_distance
+from nima.model.loss import earth_movers_distance
 
 MODELS_FILE_DIR = Path(__file__).resolve().parent
 MODELS_JSON_FILE_PATH = os.path.join(MODELS_FILE_DIR, 'models.json')

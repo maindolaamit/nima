@@ -1,11 +1,25 @@
+"""AVA Dataset Downloader
+
+Usage:
+  ava_downloader.py (-d | --dir) <full_path>
+  ava_downloader.py (-h | --help)
+  ava_downloader.py --version
+
+Options:
+  -h --help              Show this screen.
+  --version              Show version.
+  -d --download-dir      Download directory of the project, default is the current script directory ../../data/AVA/images
+
+"""
 import os
-from pathlib import Path
+import argparse
 import re
 import shutil
+from pathlib import Path
+import pandas as pd
 
 import requests
 from bs4 import BeautifulSoup
-import pandas as pd
 
 URL_PREFIX = 'http://www.dpchallenge.com/image.php?IMAGE_ID='
 PROJECT_ROOT_DIR = Path(__file__).resolve().parent.parent.parent
@@ -83,15 +97,24 @@ def get_ava_image(url, image_id):
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Download AVA dataset Images')
+    parser.add_argument('-d', '--download-dir', help='Image download directory.', required=False)
+    args = parser.parse_args()
+
+    arg_download_dir = args.__dict__['download_dir']
+    if arg_download_dir is not None:
+        DOWNLOAD_DIR = arg_download_dir
+
     # create directory if not exists
     if not os.path.isdir(DOWNLOAD_DIR):
         os.mkdir(DOWNLOAD_DIR)
 
+    print(f'Download directory  : {DOWNLOAD_DIR}')
     # read the dataframe to fetch image id
     df = pd.read_csv(AVA_FILE, sep=' ', header=None)
     # Loop for each image id
     print_msg('Downloading dataset')
-    for img_id in df.iloc[:400, 1].tolist():
+    for img_id in df.iloc[:, 1].tolist():
         img_url = f"{URL_PREFIX}{img_id}"
         # print_msg(f'Downloading image ... {img_url}')
         get_ava_image(img_url, img_id)

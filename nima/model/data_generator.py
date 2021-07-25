@@ -5,7 +5,7 @@ import numpy as np
 import tensorflow.keras as keras
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
-from src.utils import image_utils
+from nima.utils import image_utils
 
 
 class NimaDataGenerator(keras.utils.Sequence):

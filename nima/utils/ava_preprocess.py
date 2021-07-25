@@ -80,3 +80,9 @@ def get_csv_df_with_max_rating(dataset_path=None):
     df = get_ava_csv_df()
     df['rating'] = df.apply(lambda row: __get_max_rating(row), axis=1)
     return df
+
+def get_tags_df():
+    df = pd.read_csv(os.path.join(AVA_DIR, 'tags.txt'), sep=' ', header=None, names=['id','label'])
+    df['id'] = df['id'].astype(int)
+    df.sort_values(by=['id'], inplace=True)
+    return df
