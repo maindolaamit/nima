@@ -1,7 +1,7 @@
-from tensorflow.keras.preprocessing.image import load_img
-from tensorflow.keras.preprocessing.image import img_to_array
-from numpy.random import randint
 from PIL import Image, ImageOps
+from numpy.random import randint
+from tensorflow.keras.preprocessing.image import img_to_array
+from tensorflow.keras.preprocessing.image import load_img
 
 
 def load_image(image_path, target_size=(224, 224)):
@@ -23,7 +23,8 @@ def random_crop_image(img, crop_size):
     assert img_h > crop_h, 'image height should be greater than crop_size'
     assert img_w > crop_w, 'image width should be greater than crop_size'
 
-    return img[randint(img_h - crop_h + 1), randint(img_w - crop_w + 1)]
+    x, y = randint(0, img_h - crop_h + 1), randint(0, img_w - crop_w + 1)
+    return img[x:x + crop_w, y:y + crop_h, :]
 
 
 def horizontal_flip(img):

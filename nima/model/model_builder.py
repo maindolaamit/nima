@@ -1,11 +1,11 @@
 import importlib
-# import os
-# from pathlib import Path
 import os
 from pathlib import Path
+
+from tensorflow.keras.layers import Dropout, Dense
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.layers import Dropout, Dense
+
 from nima.model.loss import earth_movers_distance
 
 MODELS_FILE_DIR = Path(__file__).resolve().parent
@@ -14,18 +14,22 @@ MODELS_JSON_FILE_PATH = os.path.join(MODELS_FILE_DIR, 'models.json')
 
 class NIMA:
     def __init__(self, base_model_name, weights='imagenet',
-                 input_shape=(224, 224, 3), loss=earth_movers_distance):
+                 input_shape=(224, 224, 3), loss=earth_movers_distance, metrics=None):
         """
         Constructor method
+        :rtype: NIMA class object - A deep Learning CNN Model
         :param base_model_name: Base model name
         :param weights: Weights of the model, initialized to imagenet
         """
+        if metrics is None:
+            metrics = ['accuracy']
         self.weights = weights
         self.input_shape = input_shape
         self._get_base_module(base_model_name)
         self.base_model = None
         self.model = None
         self.loss = loss
+        self.metrics = metrics
 
     def _get_base_module(self, model_name):
         """

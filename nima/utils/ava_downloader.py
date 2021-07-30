@@ -11,13 +11,13 @@ Options:
   -d --download-dir      Download directory of the project, default is the current script directory ../../data/AVA/images
 
 """
-import os
 import argparse
+import os
 import re
 import shutil
 from pathlib import Path
-import pandas as pd
 
+import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 
@@ -103,7 +103,9 @@ if __name__ == '__main__':
 
     arg_download_dir = args.__dict__['download_dir']
     if arg_download_dir is not None:
-        DOWNLOAD_DIR = arg_download_dir
+        AVA_DATASET_DIR = arg_download_dir
+        DOWNLOAD_DIR = os.path.join(AVA_DATASET_DIR, 'images')
+        AVA_FILE = os.path.join(AVA_DATASET_DIR, 'AVA.txt')
 
     # create directory if not exists
     if not os.path.isdir(DOWNLOAD_DIR):
@@ -118,5 +120,9 @@ if __name__ == '__main__':
         img_url = f"{URL_PREFIX}{img_id}"
         # print_msg(f'Downloading image ... {img_url}')
         get_ava_image(img_url, img_id)
+        # todo : temp fix
+        # break the loop to avoid blocking from image server
+        if img_count >= 100:
+            break
 
     print_msg(f'downloaded AVA dataset, image count {img_count}.')

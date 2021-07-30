@@ -123,3 +123,4 @@ mkdocs/docs/CONTRIBUTING.md
 mkdocs/docs/LICENSE.md
 /docs
 data/*/images
+data/*/archive

@@ -3,8 +3,7 @@ import warnings
 
 import numpy as np
 import tensorflow.keras as keras
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
-
+import tensorflow as tf
 from nima.utils import image_utils
 
 
@@ -57,13 +56,15 @@ class NimaDataGenerator(keras.utils.Sequence):
             # Modify image only for training purpose
             if self.is_train:
                 # horizontal flip and crop randomly
+                # img = self._flip_crop_resize(img_path)
                 img = image_utils.random_crop_image(img, self.crop_size)
                 if (np.random.random() > 0.5) and self.flip_horizontal:
                     img = np.fliplr(img)
+
             X[i] = img
             y[i] = self._normalize_label(row[self.y_col])
         # apply base network's preprocessing on the 4D numpy array
-        # X = self.preprocess_input(X)
+        X = self.preprocess_input(X)
         # return the image and labels
         return X, y
 
@@ -91,9 +92,17 @@ class NimaDataGenerator(keras.utils.Sequence):
         """
         filepaths = df[x_col].map(lambda fname: os.path.join(self.img_directory, f'{fname}.jpg'))
         mask = filepaths.apply(lambda x: os.path.isfile(x))
+        print(type(mask))
         n_invalid = (~mask).sum()
         if n_invalid:
             warnings.warn(f'Found {n_invalid} invalid image filename(s) in x_col="{x_col}".'
                           f' These filename(s) will be ignored.')
         return df[mask]
 
+    def _flip_crop_resize(self, imgfile):
+        img = image_utils.load_image(imgfile, self.input_size)
+        img = tf.convert_to_tensor(img)
+        img = tf.image.random_crop(img, size=(*self.crop_size, 3))
+        img = tf.image.random_flip_left_right(img)
+        img = np.array(img)
+        return img

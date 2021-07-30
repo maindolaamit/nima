@@ -1,8 +1,11 @@
 Keras~=2.4.3
-tensorflow~=2.4.1
+tensorflow~=2.3.0
 requests~=2.25.1
-pandas~=1.1.5
+pandas~=1.2.4
 bs4~=0.0.1
 beautifulsoup4~=4.9.3
 modin~=0.8.3
-setuptools
+setuptools~=52.0.0
+tensorflow-gpu~=2.3.0
+numpy~=1.19.5
+pillow~=8.3.1

@@ -3,14 +3,29 @@ import os
 from pathlib import Path
 from zipfile import ZipFile
 
-import modin.pandas as pd
+import pandas as pd
 import numpy as np
 
-from nima.utils.ava_preprocess import columns
+columns = [
+    "index",
+    "image_id",
+    "count_rating_1",
+    "count_rating_2",
+    "count_rating_3",
+    "count_rating_4",
+    "count_rating_5",
+    "count_rating_6",
+    "count_rating_7",
+    "count_rating_8",
+    "count_rating_9",
+    "count_rating_10",
+    "tag_1",
+    "tag_2",
+    "challange_id",
+]
 
 PROJECT_ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 AVA_DATASET_DIR = os.path.join(PROJECT_ROOT_DIR, 'data', 'AVA')
-IMAGE_DIR = os.path.join(AVA_DATASET_DIR, 'images')
 
 
 def get_ava_df(ava_file):
@@ -22,37 +37,54 @@ def get_ava_df(ava_file):
 
 def archive_images(image_df, batch_id):
     archive_dir = os.path.join(AVA_DATASET_DIR, 'archive')
+    image_dir = os.path.join(AVA_DATASET_DIR, 'images')
     if not os.path.isdir(archive_dir):
         os.mkdir(archive_dir)
     cwd = os.getcwd()
     os.chdir(archive_dir)
 
-    # zip all the files
-    zipObj = ZipFile.open(f'{batch_id}.zip', 'w')
-    image_df.apply(lambda x: zipObj.write(os.path.join(IMAGE_DIR, x + ".jpg")))
-    zipObj.close()
+    file_count = 0
+    # zip all the files in the batch
+    zip_obj_name = f'{batch_id}.zip'
+    if os.path.isfile(zip_obj_name):
+        os.remove(zip_obj_name)
 
-    # delete the files
-    # image_df.apply(lambda x: os.remove(os.path.join(IMAGE_DIR, x + ".jpg")))
+    zip_obj = ZipFile(zip_obj_name, 'w')
+    for i, row in image_df.iterrows():
+        image_path = os.path.join(image_dir, f"{row['image_id']}.jpg")
+        if os.path.isfile(image_path):
+            zip_obj.write(image_path, os.path.basename(image_path))
+            file_count += 1
+    zip_obj.close()
+
+    # Delete if no image written
+    if file_count > 0:
+        print(f"\t{zip_obj_name} : Total files written - {file_count}")
+    else:
+        os.remove(zip_obj_name)
+
     os.chdir(cwd)
+    return os.path.join(archive_dir, zip_obj_name)
 
 
-def __main__(self):
+"""
+Usage :  python nima/utils/ava_archive.py -d E:\AVA_dataset\
+"""
+if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Archive AVA dataset Images')
-    parser.add_argument('-d', '--dataset-dir', help='Image download directory.', required=False)
+    parser.add_argument('-d', '--dataset-dir', help='Images directory.', required=False)
     args = parser.parse_args()
 
-    arg_dataset_dir = args.__dict__['download_dir']
-    print(f'Download directory  : {arg_dataset_dir}')
-    global AVA_DATASET_DIR
+    arg_dataset_dir = args.__dict__['dataset_dir']
     if arg_dataset_dir is not None:
         AVA_DATASET_DIR = arg_dataset_dir
     else:
         AVA_DATASET_DIR = os.path.join(PROJECT_ROOT_DIR, 'data', 'AVA')
 
+    print(f'Dataset directory  : {AVA_DATASET_DIR}')
     ava_file = os.path.join(AVA_DATASET_DIR, 'AVA.txt')
     df = get_ava_df(ava_file)
 
     # archive the files in batch
     for batch_id in df['batch_id'].unique().tolist():
-        archive_images(df[df['batch_id'] == batch_id], batch_id)
+        zip_file = archive_images(df[df['batch_id'] == batch_id], batch_id)
