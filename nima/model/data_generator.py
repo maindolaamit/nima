@@ -30,7 +30,7 @@ class NimaDataGenerator(keras.utils.Sequence):
         self.crop_size, self.input_size = crop_size, input_size
         self.shuffle = shuffle
         self.num_classes = 10
-        self.preprocess_input = preprocess_input
+        self.model_preprocess_input = preprocess_input
         self.is_train = is_train
         # Filter dataframe for valid images only
         self.df = self._filter_valid_filepaths(df.copy(), x_col)
@@ -47,27 +47,31 @@ class NimaDataGenerator(keras.utils.Sequence):
         batch_samples = self.df.iloc[batch_indexes]
         # Initialization
         X = np.empty((self.batch_size, *self.crop_size, 3))
-        y = np.empty((self.batch_size, *self.num_classes))
+        y = np.empty((self.batch_size, self.num_classes))
         # loop for the images in the sample and modify
         for i, row in batch_samples.iterrows():
             # Load the image and resize
-            img_path = os.path.join(self.img_directory, row[self.x_col] + '.jpg')
+            img_path = os.path.join(self.img_directory, f'{row[self.x_col]}.jpg')
             img = image_utils.load_image(img_path, self.input_size)
             # Modify image only for training purpose
             if self.is_train:
-                # horizontal flip and crop randomly
                 # img = self._flip_crop_resize(img_path)
+                # crop the image
                 img = image_utils.random_crop_image(img, self.crop_size)
-                if (np.random.random() > 0.5) and self.flip_horizontal:
+                # randomly flip image horizontal
+                if np.random.random() > 0.5:
                     img = np.fliplr(img)
 
             X[i] = img
             y[i] = self._normalize_label(row[self.y_col])
         # apply base network's preprocessing on the 4D numpy array
-        X = self.preprocess_input(X)
+        print(type(self.model_preprocess_input))
+        print(X.shape)
+        X = self.model_preprocess_input(X)
         # return the image and labels
         return X, y
 
+    @staticmethod
     def _normalize_label(label):
         """
         Normalize the given input list of labels

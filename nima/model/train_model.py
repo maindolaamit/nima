@@ -63,10 +63,10 @@ if __name__ == '__main__':
     x_col, y_cols = 'image_id', get_rating_columns()
     # Get the generator
     train_generator = NimaDataGenerator(df_train, AVA_IMAGES_DIR, x_col, y_cols,
-                                        nima.preprocess_input, is_train=True,
+                                        nima.preprocessing_function, is_train=True,
                                         batch_size=32, )
     valid_generator = NimaDataGenerator(df_valid, AVA_IMAGES_DIR, x_col, y_cols,
-                                        nima.preprocess_input, is_train=True,
+                                        nima.preprocessing_function, is_train=True,
                                         batch_size=32, )
 
     # set model weight and path
@@ -90,7 +90,7 @@ if __name__ == '__main__':
                              epochs=arg_epochs, callbacks=[es, ckpt, lr, plot_loss],
                              verbose=arg_verbose)
     result_df = pd.DataFrame(history.history)
-    preprocess_input = nima.preprocess_input()
+    preprocess_input = nima.preprocessing_function()
 
     nima.compile()
     nima.fit()

@@ -47,7 +47,7 @@ class NIMA:
         self.base_model_name = models[model_name]['model_class']
         model_package = models[model_name]['model_package']
         self.base_module = importlib.import_module(model_package)
-        print(f"Model module - {model_package}.{self.base_model_name}")
+        print(f"Model's module - {model_package}.{self.base_model_name}")
 
     def build(self):
         """
@@ -70,16 +70,8 @@ class NIMA:
         """
         self.model.compile(optimizer=Adam(), loss=self.loss)
 
-    def get_base_model_attr(self):
-        preprocess_input = getattr(self.base_module, 'preprocess_input')
-        decode_predictions = getattr(self.base_module, 'decode_predictions')
-        predict = getattr(self.base_model, 'predict')
-        return preprocess_input, decode_predictions, predict
-
-    def preprocess_input(self):
+    def preprocessing_function(self):
         """
         Return the model's preprocess_input
         """
-        return self.model.preprocess_input
-        # preprocess_input = getattr(self.base_module, 'preprocess_input')
-        # return preprocess_input(input)
+        return getattr(self.base_module, 'preprocess_input')

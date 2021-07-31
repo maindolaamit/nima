@@ -20,8 +20,8 @@ def random_crop_image(img, crop_size):
     """
     img_h, img_w = img.shape[0], img.shape[1]
     crop_h, crop_w = crop_size[0], crop_size[1]
-    assert img_h > crop_h, 'image height should be greater than crop_size'
-    assert img_w > crop_w, 'image width should be greater than crop_size'
+    assert img_h >= crop_h, f'image height {img_h} should be greater than crop_size {crop_h}'
+    assert img_w >= crop_w, f'image width {img_w} should be greater than crop_size {crop_w}'
 
     x, y = randint(0, img_h - crop_h + 1), randint(0, img_w - crop_w + 1)
     return img[x:x + crop_w, y:y + crop_h, :]
