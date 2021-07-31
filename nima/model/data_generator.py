@@ -38,7 +38,7 @@ class NimaDataGenerator(keras.utils.Sequence):
         print(f'Found {len(self.df)} valid image filenames belonging to {self.num_classes} classes.')
 
     def __len__(self):
-        return np.ceil(len(self.df) / self.batch_size)
+        return int(np.ceil(len(self.df) / self.batch_size))
 
     def __getitem__(self, index):
         """The index passed into the function will be done by the fit function while training."""
@@ -92,7 +92,6 @@ class NimaDataGenerator(keras.utils.Sequence):
         """
         filepaths = df[x_col].map(lambda fname: os.path.join(self.img_directory, f'{fname}.jpg'))
         mask = filepaths.apply(lambda x: os.path.isfile(x))
-        print(type(mask))
         n_invalid = (~mask).sum()
         if n_invalid:
             warnings.warn(f'Found {n_invalid} invalid image filename(s) in x_col="{x_col}".'

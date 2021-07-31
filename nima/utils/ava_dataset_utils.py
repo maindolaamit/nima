@@ -3,11 +3,13 @@ import os
 from pathlib import Path
 from glob import glob
 
+from sklearn.model_selection import train_test_split
+
 from nima.utils.ava_downloader import AVA_DATASET_DIR
 
 PROJECT_ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 AVA_DIR = os.path.join(PROJECT_ROOT_DIR, 'data', 'AVA')
-AVA_DATA_DIR = os.path.join(AVA_DIR, 'images')
+AVA_IMAGES_DIR = os.path.join(AVA_DIR, 'images')
 AVA_FILE = os.path.join(AVA_DIR, 'AVA.txt')
 AVA_CSV = os.path.join(AVA_DIR, 'AVA.csv')
 
@@ -101,6 +103,31 @@ def get_tags_df():
     df['id'] = df['id'].astype(int)
     df.sort_values(by=['id'], inplace=True)
     return df
+
+
+def load_data(ava_dataset_dir=None, sample_size=None):
+    """
+    Returns the pandas DataFrame for Training Data, Test Data and Validation Data.
+    :return: Train DataFrame, Validation DataFrame, Test DataFrame
+    """
+    if ava_dataset_dir is None:
+        ava_dataset_dir = AVA_DATASET_DIR
+
+    ava_images_dir = os.path.join(ava_dataset_dir, "images")
+    count_columns = get_rating_columns()  # get the columns representing ratings
+    ava_csv_df = get_ava_csv_df(ava_dataset_dir)  # Get the AVA csv dataframe
+
+    if sample_size is None:
+        sample_size = len(ava_csv_df)
+
+    keep_columns = ['image_id'] + count_columns
+    print(f'Number of samples picked {sample_size}')
+    df = ava_csv_df[keep_columns][0:sample_size - 1]
+
+    df_train, df_test = train_test_split(df, test_size=0.05, shuffle=True, random_state=1024)
+    df_train, df_valid = train_test_split(df_train, test_size=0.3, shuffle=True, random_state=1024)
+
+    return df_train.reset_index(drop=True), df_valid.reset_index(drop=True), df_test.reset_index(drop=True)
 
 
 if __name__ == '__main__':

@@ -1,14 +1,18 @@
 {
+  "vgg": {
+    "model_package": "tensorflow.keras.applications.vgg19",
+    "model_class": "VGG19"
+  },
   "mobilenet": {
     "model_package": "tensorflow.keras.applications.mobilenet_v2",
-    "model_name": "MobileNetV2"
+    "model_class": "MobileNetV2"
   },
   "nasnet": {
     "model_package": "tensorflow.keras.applications.nasnet",
-    "model_name": "NASNetMobile"
+    "model_class": "NASNetMobile"
   },
   "efficientnet": {
     "model_package": "tensorflow.keras.applications.efficientnet",
-    "model_name": "EfficientNetB3"
+    "model_class": "EfficientNetB3"
   }
 }

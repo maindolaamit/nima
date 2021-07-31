@@ -5,39 +5,23 @@ from pathlib import Path
 import pandas as pd
 from keras.callbacks import ModelCheckpoint, ReduceLROnPlateau, EarlyStopping
 from livelossplot.inputs.keras import PlotLossesCallback
-from sklearn.model_selection import train_test_split
 
 from nima.model.data_generator import NimaDataGenerator
 from nima.model.model_builder import NIMA
-from nima.utils.ava_preprocess import get_ava_csv_df
-from nima.utils.ava_preprocess import get_rating_columns
+from nima.utils.ava_dataset_utils import load_data, get_rating_columns
 
 PROJECT_ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 WEIGHTS_DIR = os.path.join(PROJECT_ROOT_DIR, 'nima', 'weights')
 AVA_DATASET_DIR = os.path.join(PROJECT_ROOT_DIR, 'data', 'AVA')
 AVA_IMAGES_DIR = ""
 
-
-def load_data():
-    """
-    Returns the pandas DataFrame for Training Data, Test Data and Validation Data.
-    :return: Train DataFrame, Validation DataFrame, Test DataFrame
-    """
-    ava_csv_df = get_ava_csv_df(AVA_IMAGES_DIR)  # Get the AVA csv dataframe
-    count_columns = get_rating_columns()  # get the columns representing ratings
-    keep_columns = ['image_id'] + count_columns
-
-    df_train, df_test = train_test_split(df, test_size=0.05, shuffle=True, random_state=1024)
-    df_train, df_valid = train_test_split(df_train, test_size=0.3, shuffle=True, random_state=1024)
-
-    return df_train, df_valid, df_test
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Train the model on AVA Dataset')
     parser.add_argument('-d', '--dataset-dir', type=str, required=False, help='AVA Dataset directory.')
     parser.add_argument('-n', '--model-name', type=str, default='mobilenet', required=False,
                         help='Model Name to train, view models.json to know available models for training.')
+    parser.add_argument('-s', '--sampe-size', type=int, default=None, required=False,
+                        help='Sample size, None for full size.')
     parser.add_argument('-m', '--metrics', type=list, default=['accuracy'], required=False,
                         help='Weights file path, if any.')
     parser.add_argument('-w', '--weights-path', type=str, default=None, required=False,
@@ -50,6 +34,7 @@ if __name__ == '__main__':
     # Set the AVA Dataset directory, default to current project data directory
     arg_dataset_dir = args.__dict__['dataset_dir']
     if arg_dataset_dir is not None:
+        assert os.path.isdir(arg_dataset_dir), f'Invalid dataset directory {arg_dataset_dir}'
         AVA_DATASET_DIR = arg_dataset_dir
     AVA_IMAGES_DIR = os.path.join(AVA_DATASET_DIR, 'images')
 
@@ -60,30 +45,29 @@ if __name__ == '__main__':
         assert os.path.isfile(arg_weight_path), 'Invalid weights, does not exists.'
 
     arg_batch_size = args.__dict__['batch_size']
+    arg_sample_size = args.__dict__['sample_size']
     arg_epochs = args.__dict__['epochs']
     arg_verbose = args.__dict__['verbose']
     arg_metrics = args.__dict__['metrics']
 
-    # ava_csv_df = get_ava_csv_df()  # Get the AVA csv dataframe
-    # count_columns = get_rating_columns()  # get the columns representing ratings
-    # keep_columns = ['image_id'] + count_columns
-    # df = ava_csv_df.drop(keep_columns)
-    # df = load_data()
-    # Get the test size and test size
-    # df_train, df_test = train_test_split(df, test_size=0.05, shuffle=True, random_state=1024)
-    # df_train, df_valid = train_test_split(df_train, test_size=0.3, shuffle=True, random_state=1024)
-    df_train, df_valid, df_test = load_data()
+    # Load the dataset
+    df_train, df_valid, df_test = load_data(AVA_IMAGES_DIR, arg_sample_size)
     # Form the NIMA Model
-    nima_model = NIMA(base_model_name=arg_model_name, weights='imagenet', input_shape=(224, 224, 3),
-                      metrics=arg_metrics)
-    nima_model.build()
+    nima = NIMA(base_model_name=arg_model_name, weights='imagenet', input_shape=(224, 224, 3),
+                metrics=arg_metrics)
+    nima.build()
     # load model weights if existing
     if arg_weight_path is not None:
-        nima_model.model.load_weights(arg_weight_path)
+        nima.model.load_weights(arg_weight_path)
 
+    x_col, y_cols = 'image_id', get_rating_columns()
     # Get the generator
-    train_generator = NimaDataGenerator()
-    valid_generator = NimaDataGenerator()
+    train_generator = NimaDataGenerator(df_train, AVA_IMAGES_DIR, x_col, y_cols,
+                                        nima.preprocess_input, is_train=True,
+                                        batch_size=32, )
+    valid_generator = NimaDataGenerator(df_valid, AVA_IMAGES_DIR, x_col, y_cols,
+                                        nima.preprocess_input, is_train=True,
+                                        batch_size=32, )
 
     # set model weight and path
     weight_filename = f'{arg_model_name}_weight_best'
@@ -102,11 +86,11 @@ if __name__ == '__main__':
     plot_loss = PlotLossesCallback()
 
     # start training
-    history = nima_model.model.fit(train_generator, validation_data=valid_generator,
-                                   epochs=arg_epochs, callbacks=[es, ckpt, lr, plot_loss],
-                                   verbose=arg_verbose)
+    history = nima.model.fit(train_generator, validation_data=valid_generator,
+                             epochs=arg_epochs, callbacks=[es, ckpt, lr, plot_loss],
+                             verbose=arg_verbose)
     result_df = pd.DataFrame(history.history)
-    preprocess_input = nima_model.preprocess_input()
+    preprocess_input = nima.preprocess_input()
 
-    nima_model.compile()
-    nima_model.fit()
+    nima.compile()
+    nima.fit()

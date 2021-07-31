@@ -25,11 +25,14 @@ class NIMA:
             metrics = ['accuracy']
         self.weights = weights
         self.input_shape = input_shape
-        self._get_base_module(base_model_name)
-        self.base_model = None
-        self.model = None
+        self.model_name = base_model_name
         self.loss = loss
         self.metrics = metrics
+        self.base_model_name = None
+        self.base_model = None
+        self.model = None
+        # Set the model properties.
+        self._get_base_module(base_model_name)
 
     def _get_base_module(self, model_name):
         """
@@ -40,12 +43,11 @@ class NIMA:
         import json
         with open(MODELS_JSON_FILE_PATH) as model_json_file:
             models = json.load(model_json_file)
-        if model_name not in models.keys():
-            raise Exception(f"Invalid model name, should have one of the value {models.keys()}")
-        self.base_model_name = models[model_name]['model_name']
+        assert model_name in models.keys(), f"Invalid model name, should have one of the value {models.keys()}"
+        self.base_model_name = models[model_name]['model_class']
         model_package = models[model_name]['model_package']
-        print(f"{model_package}.{self.base_model_name}")
         self.base_module = importlib.import_module(model_package)
+        print(f"Model module - {model_package}.{self.base_model_name}")
 
     def build(self):
         """
@@ -56,7 +58,6 @@ class NIMA:
         # Set the model properties
         self.base_model = base_cnn(input_shape=self.input_shape, weights=self.weights,
                                    pooling='avg', include_top=False)
-
         # add dropout and dense layer
         x = Dropout(.2)(self.base_model.output)
         x = Dense(10, activation='softmax')(x)
@@ -75,7 +76,7 @@ class NIMA:
         predict = getattr(self.base_model, 'predict')
         return preprocess_input, decode_predictions, predict
 
-    def preprocess_input(self, input):
+    def preprocess_input(self):
         """
         Return the model's preprocess_input
         """
