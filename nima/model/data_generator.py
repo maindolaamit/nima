@@ -44,9 +44,10 @@ class NimaDataGenerator(keras.utils.Sequence):
         """The index passed into the function will be done by the fit function while training."""
         # Extract samples from df based on the index passed by fit method
         batch_indexes = self.indexes[index * self.batch_size:(index + 1) * self.batch_size]
-        batch_samples = self.df.iloc[batch_indexes]
+        # Reset index to not exceed the batch size
+        batch_samples = self.df.iloc[batch_indexes].copy().reset_index(drop=True)
         # Initialization
-        X = np.empty((self.batch_size, *self.crop_size, 3))
+        x = np.empty((self.batch_size, *self.crop_size, 3))
         y = np.empty((self.batch_size, self.num_classes))
         # loop for the images in the sample and modify
         for i, row in batch_samples.iterrows():
@@ -62,14 +63,12 @@ class NimaDataGenerator(keras.utils.Sequence):
                 if np.random.random() > 0.5:
                     img = np.fliplr(img)
 
-            X[i] = img
+            x[i] = img
             y[i] = self._normalize_label(row[self.y_col])
         # apply base network's preprocessing on the 4D numpy array
-        print(type(self.model_preprocess_input))
-        print(X.shape)
-        X = self.model_preprocess_input(X)
+        x = self.model_preprocess_input(x)
         # return the image and labels
-        return X, y
+        return x, y
 
     @staticmethod
     def _normalize_label(label):

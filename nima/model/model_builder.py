@@ -68,6 +68,8 @@ class NIMA:
         """
         Compile the Model
         """
+        for layer in self.model.layers:
+            layer.trainable = False
         self.model.compile(optimizer=Adam(), loss=self.loss)
 
     def preprocessing_function(self):
