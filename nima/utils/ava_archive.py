@@ -1,6 +1,6 @@
 import argparse
 import os
-from pathlib import Path
+from nima.config import AVA_DATASET_DIR
 from zipfile import ZipFile
 
 import pandas as pd
@@ -24,8 +24,8 @@ columns = [
     "challange_id",
 ]
 
-PROJECT_ROOT_DIR = Path(__file__).resolve().parent.parent.parent
-AVA_DATASET_DIR = os.path.join(PROJECT_ROOT_DIR, 'data', 'AVA')
+# PROJECT_ROOT_DIR = Path(__file__).resolve().parent.parent.parent
+DATASET_DIR = AVA_DATASET_DIR
 
 
 def get_ava_df(ava_file):
@@ -36,8 +36,8 @@ def get_ava_df(ava_file):
 
 
 def archive_images(image_df, batch_id):
-    archive_dir = os.path.join(AVA_DATASET_DIR, 'archive')
-    image_dir = os.path.join(AVA_DATASET_DIR, 'images')
+    archive_dir = os.path.join(DATASET_DIR, 'archive')
+    image_dir = os.path.join(DATASET_DIR, 'images')
     if not os.path.isdir(archive_dir):
         os.mkdir(archive_dir)
     cwd = os.getcwd()
@@ -77,12 +77,10 @@ if __name__ == '__main__':
 
     arg_dataset_dir = args.__dict__['dataset_dir']
     if arg_dataset_dir is not None:
-        AVA_DATASET_DIR = arg_dataset_dir
-    else:
-        AVA_DATASET_DIR = os.path.join(PROJECT_ROOT_DIR, 'data', 'AVA')
+        DATASET_DIR = arg_dataset_dir
 
-    print(f'Dataset directory  : {AVA_DATASET_DIR}')
-    ava_file = os.path.join(AVA_DATASET_DIR, 'AVA.txt')
+    print(f'Dataset directory  : {DATASET_DIR}')
+    ava_file = os.path.join(DATASET_DIR, 'AVA.txt')
     df = get_ava_df(ava_file)
 
     # archive the files in batch

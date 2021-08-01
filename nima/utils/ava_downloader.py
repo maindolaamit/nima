@@ -15,17 +15,18 @@ import argparse
 import os
 import re
 import shutil
-from pathlib import Path
 
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 
+from nima.config import AVA_DATASET_DIR
+
 URL_PREFIX = 'http://www.dpchallenge.com/image.php?IMAGE_ID='
-PROJECT_ROOT_DIR = Path(__file__).resolve().parent.parent.parent
-AVA_DATASET_DIR = os.path.join(PROJECT_ROOT_DIR, 'data', 'AVA')
+# PROJECT_ROOT_DIR = Path(__file__).resolve().parent.parent.parent
+DATASET_DIR = AVA_DATASET_DIR
 DOWNLOAD_DIR = os.path.join(AVA_DATASET_DIR, 'images')
-AVA_FILE = os.path.join(AVA_DATASET_DIR, 'AVA.txt')
+# AVA_FILE = os.path.join(AVA_DATASET_DIR, 'AVA.txt')
 img_count = 0
 
 
@@ -103,9 +104,12 @@ if __name__ == '__main__':
 
     arg_download_dir = args.__dict__['download_dir']
     if arg_download_dir is not None:
-        AVA_DATASET_DIR = arg_download_dir
-        DOWNLOAD_DIR = os.path.join(AVA_DATASET_DIR, 'images')
-        AVA_FILE = os.path.join(AVA_DATASET_DIR, 'AVA.txt')
+        DATASET_DIR = arg_download_dir
+    else:
+        DATASET_DIR = AVA_DATASET_DIR
+
+    DOWNLOAD_DIR = os.path.join(DATASET_DIR, 'images')
+    ava_file = os.path.join(DATASET_DIR, 'AVA.txt')
 
     # create directory if not exists
     if not os.path.isdir(DOWNLOAD_DIR):
@@ -113,7 +117,7 @@ if __name__ == '__main__':
 
     print(f'Download directory  : {DOWNLOAD_DIR}')
     # read the dataframe to fetch image id
-    df = pd.read_csv(AVA_FILE, sep=' ', header=None)
+    df = pd.read_csv(ava_file, sep=' ', header=None)
     # Loop for each image id
     print_msg('Downloading dataset')
     for img_id in df.iloc[:, 1].tolist():

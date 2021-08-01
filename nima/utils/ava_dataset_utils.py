@@ -1,17 +1,16 @@
-import pandas as pd
 import os
-from pathlib import Path
 from glob import glob
 
+import pandas as pd
 from sklearn.model_selection import train_test_split
 
 from nima.utils.ava_downloader import AVA_DATASET_DIR
 
-PROJECT_ROOT_DIR = Path(__file__).resolve().parent.parent.parent
-AVA_DIR = os.path.join(PROJECT_ROOT_DIR, 'data', 'AVA')
-AVA_IMAGES_DIR = os.path.join(AVA_DIR, 'images')
-AVA_FILE = os.path.join(AVA_DIR, 'AVA.txt')
-AVA_CSV = os.path.join(AVA_DIR, 'AVA.csv')
+# PROJECT_ROOT_DIR = Path(__file__).resolve().parent.parent.parent
+# AVA_DIR = os.path.join(PROJECT_ROOT_DIR, 'data', 'AVA')
+# AVA_IMAGES_DIR = os.path.join(AVA_DIR, 'images')
+# AVA_FILE = os.path.join(AVA_DIR, 'AVA.txt')
+# AVA_CSV = os.path.join(AVA_DIR, 'AVA.csv')
 
 columns = [
     "index",
@@ -36,26 +35,38 @@ __rating_columns = None
 
 
 def get_rating_columns():
+    """
+    Get the list of Ratings column
+    :return: list of ratings column
+    """
     global __rating_columns
     if __rating_columns is None:
         __rating_columns = [x for x in columns if x.startswith('count_rating')]
     return __rating_columns
 
 
-def get_present_image_names_df(image_dir):
+def _get_present_image_namess_df(image_dir):
+    """
+    Fetch all the images in the given directory and return in Pandas DataFrame
+    :rtype: Pandas dataframe having names of all the images present in the path
+    """
     image_files = [os.path.basename(name) for name in glob(os.path.join(image_dir, '*.jpg'))]
     df_image = pd.DataFrame(image_files, columns=['image_id'])
     return df_image
 
 
 def make_ava_csv(dataset_dir=None):
+    """
+    Look for the images present in the given dataset directory and create/update the AVA.csv file
+    :param dataset_dir: Path of the AVA Dataset, should have a folder images having actual images in it.
+    """
     if dataset_dir is None:
         dataset_dir = AVA_DATASET_DIR
 
     # Fetch the list of images and Merge the two dataframe on id
     print('Getting present images list')
     images_dir = os.path.join(dataset_dir, 'images')
-    df_images = get_present_image_names_df(images_dir)
+    df_images = _get_present_image_namess_df(images_dir)
     df_orig = get_original_ava_df(dataset_dir)
     print('creating dataframe of images name')
     images_present_list = df_images['image_id'].apply(lambda x: x.split('.')[0]).astype(int).to_list()
@@ -65,6 +76,11 @@ def make_ava_csv(dataset_dir=None):
 
 
 def get_ava_csv_df(dataset_dir=None):
+    """
+    Returns the Pandas DataFrame from AVA.csv file
+    :param dataset_dir: AVA Dataset directory.
+    :return: Pandas DataFrame from AVA.csv
+    """
     if dataset_dir is None:
         dataset_dir = AVA_DATASET_DIR
     df = pd.read_csv(os.path.join(dataset_dir, 'AVA.csv'))
@@ -72,14 +88,24 @@ def get_ava_csv_df(dataset_dir=None):
 
 
 def get_original_ava_df(dataset_dir=None):
+    """
+    Returns the Pandas DataFrame from original file AVA.txt
+    :param dataset_dir: AVA dataset directory
+    :return: Pandas DataFrame
+    """
     if dataset_dir is None:
         dataset_dir = AVA_DATASET_DIR
 
     ava_file = os.path.join(dataset_dir, 'AVA.txt')
-    return pd.read_csv(AVA_FILE, sep=' ', header=None, names=columns, )
+    return pd.read_csv(ava_file, sep=' ', header=None, names=columns, )
 
 
 def __get_max_rating(df_row):
+    """
+    Get the max rating from the passed DataFrame row of original ava.txt
+    :param df_row: DataFrame Row
+    :return: Pandas Series having max rating value
+    """
     row = df_row[get_rating_columns()]
     max_value_id = row.idxmax()
     max_rating = max_value_id.replace('count_rating_', '')
@@ -98,8 +124,15 @@ def get_csv_df_with_max_rating(dataset_dir=None):
     return df
 
 
-def get_tags_df():
-    df = pd.read_csv(os.path.join(AVA_DIR, 'tags.txt'), sep=' ', header=None, names=['id', 'label'])
+def get_tags_df(dataset_dir=None):
+    """
+    Get the DataFrame of tags.txt file, having tags information of the images.
+    :param dataset_dir: AVA Dataset directory.
+    :return: Pandas DataFrame
+    """
+    if dataset_dir is None:
+        dataset_dir = AVA_DATASET_DIR
+    df = pd.read_csv(os.path.join(dataset_dir, 'tags.txt'), sep=' ', header=None, names=['id', 'label'])
     df['id'] = df['id'].astype(int)
     df.sort_values(by=['id'], inplace=True)
     return df

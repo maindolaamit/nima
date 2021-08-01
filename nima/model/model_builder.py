@@ -1,15 +1,16 @@
 import importlib
 import os
-from pathlib import Path
+import time
 
+import pandas as pd
+from keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
+from livelossplot.inputs.keras import PlotLossesCallback
 from tensorflow.keras.layers import Dropout, Dense
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 
+from nima.config import MODELS_JSON_FILE_PATH, PROJECT_ROOT_DIR
 from nima.model.loss import earth_movers_distance
-
-MODELS_FILE_DIR = Path(__file__).resolve().parent
-MODELS_JSON_FILE_PATH = os.path.join(MODELS_FILE_DIR, 'models.json')
 
 
 class NIMA:
@@ -69,11 +70,43 @@ class NIMA:
         Compile the Model
         """
         for layer in self.model.layers:
-            layer.trainable = False
-        self.model.compile(optimizer=Adam(), loss=self.loss)
+            layer.trainable = True
+        self.model.compile(optimizer=Adam(), loss=self.loss, metrics=self.metrics)
+        print("Model compiled successfully.")
 
     def preprocessing_function(self):
         """
         Return the model's preprocess_input
         """
         return getattr(self.base_module, 'preprocess_input')
+
+    def train_model(self, train_generator, validation_generator,
+                    epochs=32, verbose=0, weights_dir=None):
+        # set model weight and path
+        if weights_dir is None:
+            weights_dir = os.path.join(PROJECT_ROOT_DIR, 'nima', 'weights')
+        weight_filename = f'{self.base_model_name}_weight_best.hdf5'
+        weight_filepath = os.path.join(weights_dir, weight_filename)
+        print(f'Model Weight path : {weight_filepath}')
+
+        es = EarlyStopping(monitor='val_loss', patience=4, verbose=verbose)
+        ckpt = ModelCheckpoint(
+            filepath=weight_filepath,
+            save_weights_only=True,
+            monitor="val_loss",
+            mode="auto",
+            # save_best_only=True,
+        )
+        lr = ReduceLROnPlateau(monitor='val_loss', patience=2, verbose=verbose)
+        plot_loss = PlotLossesCallback()
+
+        # start training
+        start_time = time.perf_counter()
+        history = self.model.fit(train_generator, validation_data=validation_generator,
+                                 epochs=epochs, callbacks=[es, ckpt, lr, plot_loss],
+                                 verbose=verbose)
+        end_time = time.perf_counter()
+        print(f'Time taken : {time.strftime("%H:%M:%S", time.gmtime(end_time-start_time))}')
+
+        result_df = pd.DataFrame(history.history)
+        return result_df
