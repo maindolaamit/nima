@@ -9,3 +9,5 @@ setuptools~=52.0.0
 tensorflow-gpu~=2.3.0
 numpy~=1.19.5
 pillow~=8.3.1
+livelossplot~=0.5.4
+scikit-learn~=0.24.2

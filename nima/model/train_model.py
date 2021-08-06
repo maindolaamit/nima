@@ -1,39 +1,64 @@
 import argparse
 import os
 
+import numpy as np
+
 from nima.config import AVA_DATASET_DIR, WEIGHTS_DIR
 from nima.model.data_generator import NimaDataGenerator
 from nima.model.model_builder import NIMA
 from nima.utils.ava_dataset_utils import load_data, get_rating_columns
 
-# PROJECT_ROOT_DIR = Path(__file__).resolve().parent.parent.parent
-# WEIGHTS_DIR = os.path.join(PROJECT_ROOT_DIR, 'nima', 'weights')
-# AVA_DATASET_DIR = os.path.join(PROJECT_ROOT_DIR, 'data', 'AVA')
-# AVA_IMAGES_DIR = ""
+input_shape = (224, 224, 3)
+x_col, y_cols = 'image_id', get_rating_columns()
+
+
+def test_model(df, images_dir, model_name, weights_path, input_shape, metrics):
+    # Form the NIMA Model
+    nima_cnn = NIMA(base_model_name=model_name, weights=weights_path, input_shape=input_shape,
+                    metrics=metrics)
+
+    nima_cnn.build()
+    # load model from weights
+    nima_cnn.model.load_weights(weights_path)
+    nima_cnn.compile()
+
+    # Get the generator
+    test_generator = NimaDataGenerator(df, images_dir, x_col, y_cols=None,
+                                       preprocess_input=nima_cnn.preprocessing_function(),
+                                       is_train=False, batch_size=32, )
+
+    steps = int(np.ceil(len(df) / 64))
+    predictions = nima_cnn.model.predict(test_generator, steps=steps)
+
+    df['predictions'] = predictions
+    return df
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Train the model on AVA Dataset')
+    parser = argparse.ArgumentParser(
+        description='Train the model on AVA Dataset')
     parser.add_argument('-d', '--dataset-dir', type=str, default=AVA_DATASET_DIR, required=False,
-                        help='AVA Dataset directory.')
+                        help='Dataset directory.')
     parser.add_argument('-n', '--model-name', type=str, default='mobilenet', required=False,
                         help='Model Name to train, view models.json to know available models for training.')
-    parser.add_argument('-s', '--sampe-size', type=int, default=None, required=False,
+    parser.add_argument('-s', '--sample-size', type=int, default=1000, required=False,
                         help='Sample size, None for full size.')
     parser.add_argument('-m', '--metrics', type=list, default=['accuracy'], required=False,
                         help='Weights file path, if any.')
     parser.add_argument('-w', '--weights-path', type=str, default=None, required=False,
                         help='Weights file path, if any.')
-    parser.add_argument('-b', '--batch-size', type=int, default=64, required=False, help='Batch size.')
+    parser.add_argument('-b', '--batch-size', type=int,
+                        default=64, required=False, help='Batch size.')
     parser.add_argument('-e', '--epochs', type=int, default=15, required=False,
                         help='Number of epochs, default 10.')
-    parser.add_argument('-v', '--verbose', type=int, default=0, required=False, help='Verbose, default 0.')
+    parser.add_argument('-v', '--verbose', type=int, default=0,
+                        required=False, help='Verbose, default 0.')
     args = parser.parse_args()
 
     # Set the AVA Dataset directory, default to current project data directory
     arg_dataset_dir = args.__dict__['dataset_dir']
-    assert os.path.isdir(arg_dataset_dir), f'Invalid dataset directory {arg_dataset_dir}'
-    ava_images_dir = os.path.join(arg_dataset_dir, 'images')
+    assert os.path.isdir(
+        arg_dataset_dir), f'Invalid dataset directory {arg_dataset_dir}'
 
     # model to choose, default to mobilenet
     arg_model_name = args.__dict__['model_name']
@@ -48,61 +73,37 @@ if __name__ == '__main__':
     arg_metrics = args.__dict__['metrics']
 
     # Load the dataset
-    df_train, df_valid, df_test = load_data(ava_images_dir, arg_sample_size)
+    df_train, df_valid, df_test = load_data(arg_dataset_dir, arg_sample_size)
     # Form the NIMA Model
-    nima_cnn = NIMA(base_model_name=arg_model_name, weights='imagenet', input_shape=(224, 224, 3),
+    nima_cnn = NIMA(base_model_name=arg_model_name, weights='imagenet', input_shape=input_shape,
                     metrics=arg_metrics)
     nima_cnn.build()
     # load model weights if existing
     if arg_weight_path is not None:
         nima_cnn.model.load_weights(arg_weight_path)
-    
+
     nima_cnn.compile()
-    nima_cnn.summary()
+    nima_cnn.model.summary()
 
-    x_col, y_cols = 'image_id', get_rating_columns()
+    ava_images_dir = os.path.join(arg_dataset_dir, 'images')
+    print(f'Images directory {ava_images_dir}')
     # Get the generator
-    train_generator = NimaDataGenerator(df_train, ava_images_dir, x_col, y_cols,
+    train_generator = NimaDataGenerator(df_train, ava_images_dir, x_col, y_cols, img_format='jpg',
                                         preprocess_input=nima_cnn.preprocessing_function(),
                                         is_train=True, batch_size=32, )
-    valid_generator = NimaDataGenerator(df_valid, ava_images_dir, x_col, y_cols,
+    valid_generator = NimaDataGenerator(df_valid, ava_images_dir, x_col, y_cols, img_format='jpg',
                                         preprocess_input=nima_cnn.preprocessing_function(),
                                         is_train=True, batch_size=32, )
 
-    # # set model weight and path
-    # weight_filename = f'{arg_model_name}_weight_best.hdf5'
-    # weight_filepath = os.path.join(WEIGHTS_DIR, weight_filename)
-    # print(f'Model Weight path : {weight_filepath}')
-    #
-    # es = EarlyStopping(monitor='val_loss', patience=4, verbose=arg_verbose)
-    # ckpt = ModelCheckpoint(
-    #     filepath=weight_filepath,
-    #     save_weights_only=True,
-    #     monitor="val_f2_score",
-    #     mode="auto",
-    #     save_best_only=True,
-    # )
-    # lr = ReduceLROnPlateau(monitor='val_loss', patience=2, verbose=1)
-    # plot_loss = PlotLossesCallback()
-    #
-    # # start training
-    # history = nima.model.fit(train_generator, validation_data=valid_generator,
-    #                          epochs=arg_epochs, callbacks=[es, ckpt, lr, plot_loss],
-    #                          verbose=arg_verbose)
-    # result_df = pd.DataFrame(history.history)
     # Train the model
-    result_df, train_weights_file = nima_cnn.train_model(train_generator, valid_generator, WEIGHTS_DIR)
+    print("Training Model...")
+    result_df, train_weights_file = nima_cnn.train_model(train_generator, valid_generator,
+                                                         epochs=arg_epochs, verbose=arg_verbose)
 
-    print(result_df)
+    # print(result_df)
 
-    # Form the test NIMA Model
-    test_nima_cnn = NIMA(base_model_name=arg_model_name, weights='imagenet', input_shape=(224, 224, 3),
-                    metrics=arg_metrics)
-    test_nima_cnn.build()
-    test_nima_cnn.model.load_weights(train_weights_file)
-    test_nima_cnn.compile()
-
-    test_generator =  NimaDataGenerator(df_test, ava_images_dir, x_col, y_cols,
-                                        preprocess_input=test_nima_cnn.preprocessing_function(),
-                                        is_train=False, batch_size=64, )
-    test_nima.model.predict()
+    # Test the model
+    print("Testing Model...")
+    train_df = test_model(df=df_test, images_dir=ava_images_dir,
+                          base_model_name=arg_model_name, weights_path=train_weights_file)
+    print(train_df)

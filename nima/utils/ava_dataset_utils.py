@@ -141,12 +141,13 @@ def get_tags_df(dataset_dir=None):
 def load_data(ava_dataset_dir=None, sample_size=None):
     """
     Returns the pandas DataFrame for Training Data, Test Data and Validation Data.
+    :param ava_dataset_dir: AVA Dataset directory.
+    :param sample_size: No. of Samples to pick from DataFrame.
     :return: Train DataFrame, Validation DataFrame, Test DataFrame
     """
     if ava_dataset_dir is None:
         ava_dataset_dir = AVA_DATASET_DIR
 
-    ava_images_dir = os.path.join(ava_dataset_dir, "images")
     count_columns = get_rating_columns()  # get the columns representing ratings
     ava_csv_df = get_ava_csv_df(ava_dataset_dir)  # Get the AVA csv dataframe
 

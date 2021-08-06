@@ -4,12 +4,13 @@ import time
 
 import pandas as pd
 from keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
-from livelossplot.inputs.keras import PlotLossesCallback
+from livelossplot import PlotLossesKerasTF
+from livelossplot.outputs import MatplotlibPlot
 from tensorflow.keras.layers import Dropout, Dense
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 
-from nima.config import MODELS_JSON_FILE_PATH, PROJECT_ROOT_DIR
+from nima.config import MODELS_JSON_FILE_PATH, PROJECT_ROOT_DIR, WEIGHTS_DIR
 from nima.model.loss import earth_movers_distance
 
 
@@ -65,12 +66,14 @@ class NIMA:
         # Assign the class model
         self.model = Model(self.base_model.input, x)
 
-    def compile(self):
+    def compile(self, train_layers=False):
         """
         Compile the Model
         """
-        for layer in self.model.layers:
-            layer.trainable = True
+        # Train layers if true
+        if train_layers:
+            for layer in self.model.layers:
+                layer.trainable = True
         self.model.compile(optimizer=Adam(), loss=self.loss, metrics=self.metrics)
         print("Model compiled successfully.")
 
@@ -80,14 +83,17 @@ class NIMA:
         """
         return getattr(self.base_module, 'preprocess_input')
 
-    def train_model(self, train_generator, validation_generator,
-                    epochs=32, verbose=0, weights_dir=None):
-        # set model weight and path
-        if weights_dir is None:
-            weights_dir = os.path.join(PROJECT_ROOT_DIR, 'nima', 'weights')
+    def get_weight_path(self):
         weight_filename = f'{self.base_model_name}_weight_best.hdf5'
-        weight_filepath = os.path.join(weights_dir, weight_filename)
+        return os.path.join(WEIGHTS_DIR, weight_filename)
+
+    def train_model(self, train_generator, validation_generator,
+                    epochs=32, verbose=0):
+        # set model weight and path
+        liveloss_filename = f'{self.base_model_name}_weight_best.jpg'
+        weight_filepath = self.get_weight_path()
         print(f'Model Weight path : {weight_filepath}')
+        print(f'Figure path : {liveloss_filename}')
 
         es = EarlyStopping(monitor='val_loss', patience=4, verbose=verbose)
         ckpt = ModelCheckpoint(
@@ -98,7 +104,8 @@ class NIMA:
             # save_best_only=True,
         )
         lr = ReduceLROnPlateau(monitor='val_loss', patience=2, verbose=verbose)
-        plot_loss = PlotLossesCallback()
+        # plot_loss = PlotLossesCallback(fig_path=liveloss_filename)
+        plot_loss = PlotLossesKerasTF(outputs=[MatplotlibPlot(figpath=liveloss_filename)])
 
         # start training
         start_time = time.perf_counter()
@@ -106,7 +113,7 @@ class NIMA:
                                  epochs=epochs, callbacks=[es, ckpt, lr, plot_loss],
                                  verbose=verbose)
         end_time = time.perf_counter()
-        print(f'Time taken : {time.strftime("%H:%M:%S", time.gmtime(end_time-start_time))}')
+        print(f'Time taken : {time.strftime("%H:%M:%S", time.gmtime(end_time - start_time))}')
 
         result_df = pd.DataFrame(history.history)
-        return result_df
+        return result_df, weight_filepath

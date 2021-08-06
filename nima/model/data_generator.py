@@ -8,7 +8,7 @@ from nima.utils import image_utils
 
 
 class NimaDataGenerator(keras.utils.Sequence):
-    def __init__(self, df, img_directory, x_col, y_col, preprocess_input,
+    def __init__(self, df, img_directory, x_col, y_col, preprocess_input, img_format='jpg',
                  is_train=False, batch_size=32, input_size=(224, 224, 3), crop_size=(224, 224),
                  shuffle=True):
         """
@@ -32,8 +32,9 @@ class NimaDataGenerator(keras.utils.Sequence):
         self.num_classes = 10
         self.model_preprocess_input = preprocess_input
         self.is_train = is_train
+        self.img_format = img_format
         # Filter dataframe for valid images only
-        self.df = self._filter_valid_filepaths(df.copy(), x_col)
+        self.df = self._filter_valid_filepaths(df.copy(), x_col, img_format)
         self.indexes = np.arange(len(self.df))  # Create an index
         print(f'Found {len(self.df)} valid image filenames belonging to {self.num_classes} classes.')
 
@@ -64,7 +65,8 @@ class NimaDataGenerator(keras.utils.Sequence):
                     img = np.fliplr(img)
 
             x[i] = img
-            y[i] = self._normalize_label(row[self.y_col])
+            if self.y_col is not None:
+                y[i] = self._normalize_label(row[self.y_col])
         # apply base network's preprocessing on the 4D numpy array
         x = self.model_preprocess_input(x)
         # return the image and labels
@@ -85,7 +87,7 @@ class NimaDataGenerator(keras.utils.Sequence):
             # Updates indexes after each epoch
             np.random.shuffle(self.indexes)
 
-    def _filter_valid_filepaths(self, df, x_col):
+    def _filter_valid_filepaths(self, df, x_col, img_format):
         """Keep only dataframe rows with valid filenames
         # Arguments
             df: Pandas dataframe containing filenames in a column
@@ -93,7 +95,7 @@ class NimaDataGenerator(keras.utils.Sequence):
         # Returns
             absolute paths to image files
         """
-        filepaths = df[x_col].map(lambda fname: os.path.join(self.img_directory, f'{fname}.jpg'))
+        filepaths = df[x_col].map(lambda fname: os.path.join(self.img_directory, f'{fname}.{img_format}'))
         mask = filepaths.apply(lambda x: os.path.isfile(x))
         n_invalid = (~mask).sum()
         if n_invalid:
