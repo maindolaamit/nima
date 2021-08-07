@@ -10,10 +10,8 @@ from tensorflow.keras.layers import Dropout, Dense
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 
-from nima.config import MODELS_JSON_FILE_PATH, WEIGHTS_DIR
+from nima.config import MODELS_JSON_FILE_PATH, WEIGHTS_DIR, BUILD_TYPE_LIST
 from nima.model.loss import earth_movers_distance
-
-BUILD_TYPE_LIST = ['aesthetic', 'technical']
 
 
 class NIMA:
@@ -29,6 +27,7 @@ class NIMA:
         self.model_type = model_type
         if metrics is None:
             metrics = ['accuracy']
+        self.learning_rate = 0.001
         self.weights = weights
         self.input_shape = input_shape
         self.model_name = base_model_name
@@ -55,15 +54,24 @@ class NIMA:
         self.base_module = importlib.import_module(model_package)
         print(f"Model's module - {model_package}.{self.base_model_name}")
 
-    def build(self):
+    def build(self, freeze_base_model=True):
         """
         Build the CNN model for Neural Image Assessment
         """
         # Load pre trained model
         base_cnn = getattr(self.base_module, self.base_model_name)
         # Set the model properties
-        self.base_model = base_cnn(input_shape=self.input_shape, weights=self.weights,
+        self.base_model = base_cnn(input_shape=self.input_shape, weights='imagenet',
                                    pooling='avg', include_top=False)
+        # Freeze/UnFreeze base model layers if true
+        if freeze_base_model:
+            print('Allowing training on base CNN layers.')
+        else:
+            print('Freezing base CNN layers.')
+
+        for layer in self.base_model.layers:
+            layer.trainable = not freeze_base_model
+
         # add dropout and dense layer
         x = Dropout(.2)(self.base_model.output)
 
@@ -76,29 +84,44 @@ class NIMA:
         # Assign the class model
         self.model = Model(self.base_model.input, x)
 
-    def compile(self, train_layers=False):
-        """
-        Compile the Model
-        """
-        # Train layers if true
-        if train_layers:
-            for layer in self.model.layers:
-                layer.trainable = True
-        self.model.compile(optimizer=Adam(), loss=self.loss, metrics=self.metrics)
+        # Load existing weight and Compile the Model
+        if self.weights is not None:
+            self.model.compile(optimizer=Adam(self.learning_rate), loss=self.loss, metrics=self.metrics)
+            self.model.load_weights(weights=self.weights)
+
+    def compile(self):
+        """ Compile the Model """
+        self.model.compile(optimizer=Adam(self.learning_rate), loss=self.loss, metrics=self.metrics)
         print("Model compiled successfully.")
 
-    def preprocessing_function(self):
+    def get_preprocess_function(self):
         """
         Return the model's preprocess_input
         """
         return getattr(self.base_module, 'preprocess_input')
 
+    def preprocess_input(self, x):
+        preprocess_input = self.get_preprocess_function()
+        return preprocess_input(x)
+
     def get_weight_path(self):
+        """
+        Forms the model's weight path  based on the model name and type
+        :rtype: Model's weight path
+        """
         weight_filename = f'{self.base_model_name}_{self.model_type}.hdf5'
         return os.path.join(WEIGHTS_DIR, weight_filename)
 
     def train_model(self, train_generator, validation_generator,
                     epochs=32, verbose=0):
+        """
+        Train the final model for the given number of parameters
+        :param train_generator: Training Image Data Generator
+        :param validation_generator: Validation Image Data Generator
+        :param epochs: Number of epochs
+        :param verbose: verbose
+        :return: Training result_df and saved models weight path
+        """
         # set model weight and path
         weight_filepath = os.path.join(WEIGHTS_DIR, self.get_weight_path())
         liveloss_filename = f'{self.base_model_name}_{self.model_type}_best.png'

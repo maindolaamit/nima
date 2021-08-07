@@ -48,7 +48,7 @@ if __name__ == '__main__':
 
     # Get the generator
     train_generator = TrainDataGenerator(df_test, images_dir, x_col='image_id', y_col=None,
-                                         preprocess_input=nima_cnn.preprocessing_function(),
+                                         preprocess_input=nima_cnn.get_preprocess_function(),
                                          is_train=False, batch_size=32, )
 
     # predict from model

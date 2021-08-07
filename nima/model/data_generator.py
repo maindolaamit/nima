@@ -5,7 +5,6 @@ import tensorflow.keras as keras
 
 from nima.config import INPUT_SHAPE, CROP_SHAPE
 from nima.utils import image_utils
-from nima.utils.image_utils import filter_valid_images
 
 
 def normalize_label(label):
@@ -42,7 +41,7 @@ class TrainDataGenerator(keras.utils.Sequence):
         self.model_preprocess_input = preprocess_input
         self.img_format = img_format
         # Filter dataframe for valid images only
-        self.df = filter_valid_images(df.copy(), img_directory, x_col, img_format)
+        self.df = image_utils.filter_valid_images(df.copy(), img_directory, x_col, img_format)
         self.indexes = np.arange(len(self.df))  # Create an index
         print(f'Found {len(self.df)} valid image filenames belonging to {self.num_classes} classes.')
 
@@ -56,7 +55,7 @@ class TrainDataGenerator(keras.utils.Sequence):
         # Reset index to not exceed the batch size
         batch_samples = self.df.iloc[batch_indexes].copy().reset_index(drop=True)
         # Initialization
-        x = np.empty((self.batch_size, *self.crop_size, 3))
+        x = np.empty((self.batch_size, *self.crop_size))
         y = np.empty((self.batch_size, self.num_classes))
         # loop for the images in the sample and modify
         for i, row in batch_samples.iterrows():
@@ -93,10 +92,8 @@ class TestDataGenerator(keras.utils.Sequence):
         :param batch_size: size of batch of data
         :param x_col: column name in the dataframe to read images from
         :param y_col: column name in the dataframe that has target data
-        :param is_train: Identifier to detect if the data generator is for train or test
         :param preprocess_input: Base CNN model's preprocessing input function
         :param input_size: dimension that image size get resized to when loaded
-        :param shuffle: weather to shuffle the data
         """
         self.input_size = input_size
         self.img_directory = img_directory
@@ -106,7 +103,7 @@ class TestDataGenerator(keras.utils.Sequence):
         self.model_preprocess_input = preprocess_input
         self.img_format = img_format
         # Filter dataframe for valid images only
-        self.df = filter_valid_images(df.copy(), img_directory, x_col, img_format)
+        self.df = image_utils.filter_valid_images(df.copy(), img_directory, x_col, img_format)
         self.indexes = np.arange(len(self.df))  # Create an index
         print(f'Found {len(self.df)} valid image filenames belonging to {self.num_classes} classes.')
 
@@ -120,7 +117,7 @@ class TestDataGenerator(keras.utils.Sequence):
         # Reset index to not exceed the batch size
         batch_samples = self.df.iloc[batch_indexes].copy().reset_index(drop=True)
         # Initialization
-        x = np.empty((self.batch_size, *self.input_size, 3))
+        x = np.empty((self.batch_size, *self.input_size))
         y = np.empty((self.batch_size, self.num_classes))
         # loop for the images in the sample and modify
         for i, row in batch_samples.iterrows():
@@ -129,7 +126,6 @@ class TestDataGenerator(keras.utils.Sequence):
             img = image_utils.load_image(img_path, self.input_size)
 
             x[i] = img
-            y[i] = normalize_label(row[self.y_col])
         # apply base network's preprocessing on the 4D numpy array
         x = self.model_preprocess_input(x)
         # return the image and labels

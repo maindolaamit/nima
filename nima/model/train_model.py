@@ -2,15 +2,17 @@ import argparse
 import os
 
 import numpy as np
+from keras.losses import mean_squared_error
 
-from nima.config import INPUT_SHAPE, DATASET_DIR, CROP_SHAPE
+from nima.config import INPUT_SHAPE, DATASET_DIR, CROP_SHAPE, BUILD_TYPE_LIST
 from nima.model.data_generator import TrainDataGenerator, TestDataGenerator
+from nima.model.loss import earth_movers_distance
 from nima.model.model_builder import NIMA
 from nima.utils.ava_downloader import print_msg
 
 
 def train_aesthetic_model(p_model_name, p_dataset_dir, p_sample_size, p_weight_path,
-                          p_batch_size, p_metrics, p_epochs, p_verbose):
+                          p_freeze_base_model, p_batch_size, p_metrics, p_epochs, p_verbose):
     from nima.utils.ava_dataset_utils import load_data, get_rating_columns
     ava_dataset_dir = os.path.join(p_dataset_dir, 'AVA')
     ava_images_dir = os.path.join(ava_dataset_dir, 'images')
@@ -25,15 +27,15 @@ def train_aesthetic_model(p_model_name, p_dataset_dir, p_sample_size, p_weight_p
     test_batch_size = min(p_batch_size, 32, len(df_test))
 
     # Form the NIMA Aesthetic Model
-    nima_aesthetic_cnn = NIMA(base_model_name=p_model_name, weights='imagenet', model_type='aesthetic',
-                              input_shape=INPUT_SHAPE, metrics=p_metrics)
+    nima_aesthetic_cnn = NIMA(base_model_name=p_model_name, weights=p_weight_path, model_type='aesthetic',
+                              loss=earth_movers_distance, input_shape=INPUT_SHAPE, metrics=p_metrics)
 
     # Build the model for training
-    nima_aesthetic_cnn.build()
+    nima_aesthetic_cnn.build(p_freeze_base_model)
     # load model weights if existing
-    if p_weight_path is not None:
-        print_msg(f'Using weight {p_weight_path}')
-        nima_aesthetic_cnn.model.load_weights(p_weight_path)
+    # if p_weight_path is not None:
+    #     print_msg(f'Using weight {p_weight_path}')
+    #     nima_aesthetic_cnn.model.load_weights(p_weight_path)
 
     nima_aesthetic_cnn.compile()
     nima_aesthetic_cnn.model.summary()
@@ -41,11 +43,11 @@ def train_aesthetic_model(p_model_name, p_dataset_dir, p_sample_size, p_weight_p
     # Get the generator
     train_generator = TrainDataGenerator(df_train, ava_images_dir, x_col=x_col, y_col=y_cols,
                                          img_format=img_format, num_classes=10,
-                                         preprocess_input=nima_aesthetic_cnn.preprocessing_function(),
+                                         preprocess_input=nima_aesthetic_cnn.get_preprocess_function(),
                                          batch_size=train_batch_size, input_size=INPUT_SHAPE, crop_size=CROP_SHAPE)
     valid_generator = TrainDataGenerator(df_valid, ava_images_dir, x_col=x_col, y_col=y_cols,
                                          img_format=img_format, num_classes=10,
-                                         preprocess_input=nima_aesthetic_cnn.preprocessing_function(),
+                                         preprocess_input=nima_aesthetic_cnn.get_preprocess_function(),
                                          batch_size=train_batch_size, input_size=INPUT_SHAPE, crop_size=CROP_SHAPE)
 
     # Train the model
@@ -58,18 +60,16 @@ def train_aesthetic_model(p_model_name, p_dataset_dir, p_sample_size, p_weight_p
     # Get the generator
     test_generator = TestDataGenerator(df_test, ava_images_dir, x_col=x_col, y_col=None,
                                        img_format=img_format, num_classes=10,
-                                       preprocess_input=nima_aesthetic_cnn.preprocessing_function(),
+                                       preprocess_input=nima_aesthetic_cnn.get_preprocess_function(),
                                        input_size=INPUT_SHAPE, batch_size=test_batch_size)
 
     predictions = nima_aesthetic_cnn.model.predict(test_generator)
-    print_msg(predictions.shape)
-
     df_test['predictions'] = predictions
     return train_result_df, df_test, train_weights_file
 
 
 def train_technical_model(p_model_name, p_dataset_dir, p_sample_size, p_weight_path,
-                          p_batch_size, p_metrics, p_epochs, p_verbose):
+                          p_freeze_base, p_batch_size, p_metrics, p_epochs, p_verbose):
     from nima.utils.tid_dataset_utils import load_tid_data
     tid_dataset_dir = os.path.join(p_dataset_dir, 'tid2013')
     tid_images_dir = os.path.join(tid_dataset_dir, 'distorted_images')
@@ -85,26 +85,26 @@ def train_technical_model(p_model_name, p_dataset_dir, p_sample_size, p_weight_p
     test_batch_size = min(p_batch_size, 32, len(df_test))
 
     # Form the NIMA Aesthetic Model
-    nima_technical_cnn = NIMA(base_model_name=p_model_name, weights='imagenet', model_type='technical',
-                              input_shape=INPUT_SHAPE, metrics=p_metrics)
+    nima_technical_cnn = NIMA(base_model_name=p_model_name, weights=p_weight_path, model_type='technical',
+                              loss=mean_squared_error, input_shape=INPUT_SHAPE, metrics=p_metrics)
 
     # Build the model for training
-    nima_technical_cnn.build()
+    nima_technical_cnn.build(p_freeze_base)
     # load model weights if existing
-    if p_weight_path is not None:
-        print_msg(f'Using weight {p_weight_path}', 1)
-        nima_technical_cnn.model.load_weights(p_weight_path)
+    # if p_weight_path is not None:
+    #     print_msg(f'Using weight {p_weight_path}', 1)
+    #     nima_technical_cnn.model.load_weights(p_weight_path)
 
-    nima_technical_cnn.compile(train_layers=False)
+    nima_technical_cnn.compile()
     nima_technical_cnn.model.summary()
 
     # Get the generator
     train_generator = TrainDataGenerator(df_train, tid_images_dir, x_col=x_col, y_col=y_cols,
                                          img_format=img_format, num_classes=1,
-                                         preprocess_input=nima_technical_cnn.preprocessing_function(),
+                                         preprocess_input=nima_technical_cnn.get_preprocess_function(),
                                          batch_size=train_batch_size, input_size=INPUT_SHAPE, crop_size=CROP_SHAPE)
     valid_generator = TrainDataGenerator(df_valid, tid_images_dir, x_col, y_cols, img_format=img_format, num_classes=1,
-                                         preprocess_input=nima_technical_cnn.preprocessing_function(),
+                                         preprocess_input=nima_technical_cnn.get_preprocess_function(),
                                          batch_size=train_batch_size, input_size=INPUT_SHAPE, crop_size=CROP_SHAPE)
 
     # Train the model
@@ -119,12 +119,12 @@ def train_technical_model(p_model_name, p_dataset_dir, p_sample_size, p_weight_p
     # Get the generator
     test_generator = TestDataGenerator(df_test, tid_images_dir, x_col=x_col, y_col=None,
                                        img_format=img_format, num_classes=1,
-                                       preprocess_input=nima_technical_cnn.preprocessing_function(),
+                                       preprocess_input=nima_technical_cnn.get_preprocess_function(),
                                        batch_size=test_batch_size, input_size=INPUT_SHAPE)
 
     test_steps = np.ceil(len(test_generator) / test_batch_size)
     predictions = nima_technical_cnn.model.predict(test_generator, steps=test_steps)
-    print_msg(predictions)
+    print_msg()
     df_test['predictions'] = predictions
     return train_result_df, df_test, train_weights_file
 
@@ -139,13 +139,15 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--sample-size', type=int, default=None, required=False,
                         help='Sample size, None for full size.')
     parser.add_argument('-m', '--metrics', type=list, default=['accuracy'], required=False,
-                        help='Weights file path, if any.')
-    parser.add_argument('-t', '--model-type', type=str, default='aesthetic', required=False,
-                        help='Model type to train aesthetic/technical/both.')
+                        help="Evaluation Metric if any, default is accuracy.")
+    parser.add_argument('-t', '--model-type', type=str, default=BUILD_TYPE_LIST[0], required=False,
+                        help="Model type to train aesthetic/technical/both.")
     parser.add_argument('-wa', '--aes-weights-path', type=str, default=None, required=False,
-                        help='Aesthetic Weights file path, if any.')
+                        help="Aesthetic Weights file path, if any.")
     parser.add_argument('-wt', '--tech-weights-path', type=str, default=None, required=False,
-                        help='Technical Weights file path, if any.')
+                        help="Technical Weights file path, if any.")
+    parser.add_argument('-f', '--freeze-base', type=bool,
+                        default=True, required=False, help="Allow Base CNN Model's layers to be trained.")
     parser.add_argument('-b', '--batch-size', type=int,
                         default=64, required=False, help='Batch size.')
     parser.add_argument('-e', '--epochs', type=int, default=15, required=False,
@@ -169,6 +171,7 @@ if __name__ == '__main__':
     if arg_tech_weight_path is not None:
         assert os.path.isfile(arg_tech_weight_path), 'Invalid Technical weights, does not exists.'
 
+    arg_freeze_base = args.__dict__['freeze_base']
     arg_batch_size = args.__dict__['batch_size']
     arg_sample_size = args.__dict__['sample_size']
     arg_epochs = args.__dict__['epochs']
@@ -176,21 +179,23 @@ if __name__ == '__main__':
     arg_metrics = args.__dict__['metrics']
 
     # Train the aesthetic model
-    if arg_model_type == ['aesthetic', 'both']:
+    if arg_model_type in [BUILD_TYPE_LIST[0], 'both']:
         aes_train_result_df, aes_test_df, aes_weight_file = train_aesthetic_model(p_model_name=arg_model_name,
                                                                                   p_dataset_dir=arg_dataset_dir,
                                                                                   p_sample_size=arg_sample_size,
                                                                                   p_weight_path=arg_aes_weight_path,
+                                                                                  p_freeze_base_model=arg_freeze_base,
                                                                                   p_batch_size=arg_batch_size,
                                                                                   p_metrics=arg_metrics,
                                                                                   p_epochs=arg_epochs,
                                                                                   p_verbose=arg_verbose)
     # Train the technical model
-    if arg_model_type in ['technical', 'both']:
+    if arg_model_type in [BUILD_TYPE_LIST[1], 'both']:
         tech_train_result_df, tech_test_df, tech_weight_file = train_technical_model(p_model_name=arg_model_name,
                                                                                      p_dataset_dir=arg_dataset_dir,
                                                                                      p_sample_size=arg_sample_size,
                                                                                      p_weight_path=arg_aes_weight_path,
+                                                                                     p_freeze_base=arg_freeze_base,
                                                                                      p_batch_size=arg_batch_size,
                                                                                      p_metrics=arg_metrics,
                                                                                      p_epochs=arg_epochs,

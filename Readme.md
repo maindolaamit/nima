@@ -76,6 +76,11 @@ To obtain the DataFrame of TID2013 use the below function.
 
 To train Aesthetic and Technical model on the AVA and TID2013 dataset run the `train.py` file present in `nima/train.py`. The file used below parameters to train the model on either of the Model type(Aesthetic/Technical) or Both of them.
 
+`usage: train_model.py` [-h] [-d DATASET_DIR] [-n MODEL_NAME] [-s SAMPLE_SIZE]`
+                      `[-m METRICS] [-t MODEL_TYPE] [-wa AES_WEIGHTS_PATH]`
+                      `[-wt TECH_WEIGHTS_PATH] [-b BATCH_SIZE] [-e EPOCHS]`
+                      [-v VERBOSE]`
+
 | **flag** | **name**              | **default**    | **help**                                                     |
 | -------- | --------------------- | -------------- | ------------------------------------------------------------ |
 | *-d*     | *--dataset-dir*       | *DATASET_DIR*  | *Dataset directory.*                                         |

@@ -6,6 +6,8 @@ WEIGHTS_DIR = os.path.join(PROJECT_ROOT_DIR, 'nima', 'weights')
 MODELS_JSON_FILE_PATH = os.path.join(PROJECT_ROOT_DIR, 'nima', 'model', 'models.json')
 INPUT_SHAPE = (256, 256, 3)
 CROP_SHAPE = (224, 224, 3)
+BUILD_TYPE_LIST = ['aesthetic', 'technical']
+
 DATASET_DIR = os.path.join(PROJECT_ROOT_DIR, 'data')
 # AVA dataset
 AVA_DATASET_DIR = os.path.join(DATASET_DIR, 'AVA')
