@@ -3,8 +3,8 @@ import os
 
 import numpy as np
 
-from nima.config import INPUT_SHAPE, DATASET_DIR
-from nima.model.data_generator import NimaDataGenerator
+from nima.config import INPUT_SHAPE, DATASET_DIR, CROP_SHAPE
+from nima.model.data_generator import TrainDataGenerator, TestDataGenerator
 from nima.model.model_builder import NIMA
 from nima.utils.ava_downloader import print_msg
 
@@ -12,7 +12,7 @@ from nima.utils.ava_downloader import print_msg
 def train_aesthetic_model(p_model_name, p_dataset_dir, p_sample_size, p_weight_path,
                           p_batch_size, p_metrics, p_epochs, p_verbose):
     from nima.utils.ava_dataset_utils import load_data, get_rating_columns
-    ava_dataset_dir = os.path.join(arg_dataset_dir, 'AVA')
+    ava_dataset_dir = os.path.join(p_dataset_dir, 'AVA')
     ava_images_dir = os.path.join(ava_dataset_dir, 'images')
     img_format = 'jpg'
     print_msg(f'Images directory {ava_images_dir}')
@@ -29,7 +29,7 @@ def train_aesthetic_model(p_model_name, p_dataset_dir, p_sample_size, p_weight_p
                               input_shape=INPUT_SHAPE, metrics=p_metrics)
 
     # Build the model for training
-    nima_aesthetic_cnn.build(train_layers=False)
+    nima_aesthetic_cnn.build()
     # load model weights if existing
     if p_weight_path is not None:
         print_msg(f'Using weight {p_weight_path}')
@@ -39,29 +39,30 @@ def train_aesthetic_model(p_model_name, p_dataset_dir, p_sample_size, p_weight_p
     nima_aesthetic_cnn.model.summary()
 
     # Get the generator
-    train_generator = NimaDataGenerator(df_train, ava_images_dir, x_col, y_cols,
-                                        img_format=img_format, num_classes=1,
-                                        preprocess_input=nima_aesthetic_cnn.preprocessing_function(),
-                                        is_train=True, batch_size=train_batch_size, )
-    valid_generator = NimaDataGenerator(df_valid, ava_images_dir, x_col, y_cols,
-                                        img_format=img_format, num_classes=1,
-                                        preprocess_input=nima_aesthetic_cnn.preprocessing_function(),
-                                        is_train=True, batch_size=valid_batch_size, )
+    train_generator = TrainDataGenerator(df_train, ava_images_dir, x_col=x_col, y_col=y_cols,
+                                         img_format=img_format, num_classes=10,
+                                         preprocess_input=nima_aesthetic_cnn.preprocessing_function(),
+                                         batch_size=train_batch_size, input_size=INPUT_SHAPE, crop_size=CROP_SHAPE)
+    valid_generator = TrainDataGenerator(df_valid, ava_images_dir, x_col=x_col, y_col=y_cols,
+                                         img_format=img_format, num_classes=10,
+                                         preprocess_input=nima_aesthetic_cnn.preprocessing_function(),
+                                         batch_size=train_batch_size, input_size=INPUT_SHAPE, crop_size=CROP_SHAPE)
 
     # Train the model
-    print_msg("Training Model...")
+    print_msg("Training Aesthetic Model...")
     train_result_df, train_weights_file = nima_aesthetic_cnn.train_model(train_generator, valid_generator,
                                                                          epochs=p_epochs, verbose=p_verbose)
 
     # Test the model
     print_msg("Testing Model...")
     # Get the generator
-    test_generator = NimaDataGenerator(df_test, ava_images_dir, x_col, y_col=None,
-                                       img_format=img_format, num_classes=1,
+    test_generator = TestDataGenerator(df_test, ava_images_dir, x_col=x_col, y_col=None,
+                                       img_format=img_format, num_classes=10,
                                        preprocess_input=nima_aesthetic_cnn.preprocessing_function(),
-                                       is_train=False, batch_size=test_batch_size)
+                                       input_size=INPUT_SHAPE, batch_size=test_batch_size)
 
     predictions = nima_aesthetic_cnn.model.predict(test_generator)
+    print_msg(predictions.shape)
 
     df_test['predictions'] = predictions
     return train_result_df, df_test, train_weights_file
@@ -70,7 +71,7 @@ def train_aesthetic_model(p_model_name, p_dataset_dir, p_sample_size, p_weight_p
 def train_technical_model(p_model_name, p_dataset_dir, p_sample_size, p_weight_path,
                           p_batch_size, p_metrics, p_epochs, p_verbose):
     from nima.utils.tid_dataset_utils import load_tid_data
-    tid_dataset_dir = os.path.join(arg_dataset_dir, 'tid2013')
+    tid_dataset_dir = os.path.join(p_dataset_dir, 'tid2013')
     tid_images_dir = os.path.join(tid_dataset_dir, 'distorted_images')
     img_format = 'bmp'
     print_msg(f'Images directory {tid_images_dir}')
@@ -98,15 +99,16 @@ def train_technical_model(p_model_name, p_dataset_dir, p_sample_size, p_weight_p
     nima_technical_cnn.model.summary()
 
     # Get the generator
-    train_generator = NimaDataGenerator(df_train, tid_images_dir, x_col, y_cols, img_format=img_format, num_classes=1,
-                                        preprocess_input=nima_technical_cnn.preprocessing_function(),
-                                        is_train=True, batch_size=train_batch_size, )
-    valid_generator = NimaDataGenerator(df_valid, tid_images_dir, x_col, y_cols, img_format=img_format, num_classes=1,
-                                        preprocess_input=nima_technical_cnn.preprocessing_function(),
-                                        is_train=True, batch_size=valid_batch_size, )
+    train_generator = TrainDataGenerator(df_train, tid_images_dir, x_col=x_col, y_col=y_cols,
+                                         img_format=img_format, num_classes=1,
+                                         preprocess_input=nima_technical_cnn.preprocessing_function(),
+                                         batch_size=train_batch_size, input_size=INPUT_SHAPE, crop_size=CROP_SHAPE)
+    valid_generator = TrainDataGenerator(df_valid, tid_images_dir, x_col, y_cols, img_format=img_format, num_classes=1,
+                                         preprocess_input=nima_technical_cnn.preprocessing_function(),
+                                         batch_size=train_batch_size, input_size=INPUT_SHAPE, crop_size=CROP_SHAPE)
 
     # Train the model
-    print_msg("Training Model...")
+    print_msg("Training Technical Model...")
     print_msg(f'Training Batch size {train_batch_size}', 1)
     train_result_df, train_weights_file = nima_technical_cnn.train_model(train_generator, valid_generator,
                                                                          epochs=p_epochs, verbose=p_verbose)
@@ -115,14 +117,14 @@ def train_technical_model(p_model_name, p_dataset_dir, p_sample_size, p_weight_p
     print_msg("Testing Model...")
     print_msg(f'Testing Batch size {test_batch_size}', 1)
     # Get the generator
-    test_generator = NimaDataGenerator(df_test, tid_images_dir, x_col, y_col=None,
+    test_generator = TestDataGenerator(df_test, tid_images_dir, x_col=x_col, y_col=None,
                                        img_format=img_format, num_classes=1,
                                        preprocess_input=nima_technical_cnn.preprocessing_function(),
-                                       is_train=False, batch_size=test_batch_size)
+                                       batch_size=test_batch_size, input_size=INPUT_SHAPE)
 
     test_steps = np.ceil(len(test_generator) / test_batch_size)
     predictions = nima_technical_cnn.model.predict(test_generator, steps=test_steps)
-
+    print_msg(predictions)
     df_test['predictions'] = predictions
     return train_result_df, df_test, train_weights_file
 

@@ -5,7 +5,7 @@ from glob import glob
 import pandas as pd
 
 from nima.config import WEIGHTS_DIR, INPUT_SHAPE
-from nima.model.data_generator import NimaDataGenerator
+from nima.model.data_generator import TrainDataGenerator
 from nima.model.model_builder import NIMA
 
 
@@ -47,9 +47,9 @@ if __name__ == '__main__':
     nima_cnn.compile()
 
     # Get the generator
-    train_generator = NimaDataGenerator(df_test, images_dir, x_col='image_id', y_col=None,
-                                        preprocess_input=nima_cnn.preprocessing_function(),
-                                        is_train=False, batch_size=32, )
+    train_generator = TrainDataGenerator(df_test, images_dir, x_col='image_id', y_col=None,
+                                         preprocess_input=nima_cnn.preprocessing_function(),
+                                         is_train=False, batch_size=32, )
 
     # predict from model
     print("Training Model...")
