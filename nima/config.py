@@ -12,4 +12,5 @@ AVA_FILE = os.path.join(AVA_DATASET_DIR, 'AVA.txt')
 AVA_CSV = os.path.join(AVA_DATASET_DIR, 'AVA.csv')
 # TID2013 dataset
 TID_DATASET_DIR = os.path.join(PROJECT_ROOT_DIR, 'data', 'tid2013')
-TID_DATASET_IMAGES_DIR = os.path.join(AVA_DATASET_DIR, 'images')
+TID_DATASET_IMAGES_DIR = os.path.join(AVA_DATASET_DIR, 'distorted_images')
+MOS_FILE = os.path.join(TID_DATASET_DIR, 'mos_with_names.txt')

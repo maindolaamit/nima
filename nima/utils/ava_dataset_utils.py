@@ -6,12 +6,6 @@ from sklearn.model_selection import train_test_split
 
 from nima.utils.ava_downloader import AVA_DATASET_DIR
 
-# PROJECT_ROOT_DIR = Path(__file__).resolve().parent.parent.parent
-# AVA_DIR = os.path.join(PROJECT_ROOT_DIR, 'data', 'AVA')
-# AVA_IMAGES_DIR = os.path.join(AVA_DIR, 'images')
-# AVA_FILE = os.path.join(AVA_DIR, 'AVA.txt')
-# AVA_CSV = os.path.join(AVA_DIR, 'AVA.csv')
-
 columns = [
     "index",
     "image_id",
