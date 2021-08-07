@@ -149,11 +149,13 @@ def load_data(ava_dataset_dir=None, sample_size=None):
         sample_size = len(ava_csv_df)
 
     keep_columns = ['image_id'] + count_columns
+    if sample_size is None or sample_size > len(ava_csv_df):
+        sample_size = len(ava_csv_df)
     print(f'Number of samples picked {sample_size}')
-    df = ava_csv_df[keep_columns][0:sample_size - 1]
+    df = ava_csv_df[keep_columns].sample(n=sample_size).reset_index(drop=True)
 
     df_train, df_test = train_test_split(df, test_size=0.05, shuffle=True, random_state=1024)
-    df_train, df_valid = train_test_split(df_train, test_size=0.3, shuffle=True, random_state=1024)
+    df_train, df_valid = train_test_split(df_train, test_size=0.2, shuffle=True, random_state=1024)
 
     return df_train.reset_index(drop=True), df_valid.reset_index(drop=True), df_test.reset_index(drop=True)
 

@@ -6,9 +6,11 @@ Neural Image Assessment"
 NIMA consists of two models that aim to predict the aesthetic and technical quality of images, respectively. The models
 are trained via transfer learning, where ImageNet pre-trained CNNs are used and fine-tuned for the classification task.
 
-The provided code allows the use any of pre-trained models in Keras. The models trained on AVA images for local CPU.
+The provided code allows the use any of pre-trained models in Keras. The models trained on AVA images for local CPU/GPU or training on AWS EC2 using TensorFlow Docker image. The project is compatible with Python 3.7 and distributed under Apache 2.0 license.
 
+**Docker build**
 
+Build docker image `docker build -t <name> .` 
 
 ### **Download AVA Dataset**
 
@@ -20,9 +22,9 @@ Information about the dataset is stored in the file AVA.txt, for faster reading 
 
 Two utilities script have been created to facilitate various work around the AVA dataset. 
 
-1. **ava_preprocess.py**
+1. **ava_dataset_utils.py**
 
-   This script hosts multiple methods to preprocess and filter the information about the images actually present in the dataset, the file is present in the ```nima\utils\ava_preprocess.py```. Below are some of the notable activities and their respective methods.
+   This script hosts multiple methods to preprocess and filter the information about the images actually present in the dataset, the file is present in the ```nima\utils\ava_dataset_utils.py```. Below are some of the notable activities and their respective methods.
 
    - **make_ava_csv** : To test on some sample images we can keep only few images in the images folder and can create a new file AVA.csv, this file will list only those records from AVA.txt against which images are actually present in the dataset. We can easily create/update the file by calling ```make_ava_csv``` method 
 
@@ -31,6 +33,8 @@ Two utilities script have been created to facilitate various work around the AVA
    - **get_csv_df_with_max_rating** : To get the ava.csv DataFrame with max rating count field. 
 
    - **get_tags_df** : To get the Pandas DataFrame on tags.txt.
+
+   - **load_data** : To get the Training, Validation and Testing DataFrame of total n sample size. It obtains the DataFrame from get_csv_df method and then split it using `sklearn.model_selection.train_test_spilt`
 
      
 
@@ -48,7 +52,47 @@ Two utilities script have been created to facilitate various work around the AVA
 
    
 
-### Train Model on AVA Dataset
+   
 
-To train model on the AVA dataset run the `train.py` file present in `nima/train.py`
+### **Download TID2013 Dataset**
+
+The AVA data set has below structure, images folder will host the all the required images. 
+
+![image-20210807175243627](C:\Users\amaindola\Google Drive\Colab Notebooks\img-quality-assesment\project-snaps\tid-dataset-structure.jpg)![image-20210807175506728](C:\Users\amaindola\Google Drive\Colab Notebooks\img-quality-assesment\project-snaps\tid-dataset-structure-images.jpg)
+
+To obtain the DataFrame of TID2013 use the below function. 
+
+1. **tid_dataset_utils.py**
+
+   This script hosts methods to preprocess and filter the information about the images present in the dataset, the file is present in the ```nima\utils\tid_dataset_utils.py```. Below are some of the notable activities and their respective methods.
+
+   - **get_mos_df** : To get the Pandas DataFrame on *mos_with_names.txt*.
+
+   - **load_tid_data** : To get the Training, Testing and Validation dataset for the given number of samples. It obtains the DataFrame from get_mos_df method and then split it using `sklearn.model_selection.train_test_spilt`
+
+     
+
+### Train Model on Dataset
+
+To train Aesthetic and Technical model on the AVA and TID2013 dataset run the `train.py` file present in `nima/train.py`. The file used below parameters to train the model on either of the Model type(Aesthetic/Technical) or Both of them.
+
+| **flag** | **name**              | **default**    | **help**                                                     |
+| -------- | --------------------- | -------------- | ------------------------------------------------------------ |
+| *-d*     | *--dataset-dir*       | *DATASET_DIR*  | *Dataset directory.*                                         |
+| *-n*     | *--model-name*        | *mobilenet*    | *Model Name to train, view models.json to know available models for training.* |
+| *-s*     | *--sample-size*       | *None*         | *Sample size, None for full size.*                           |
+| *-m*     | *--metrics*           | *['accuracy']* | *Weights file path, if any.*                                 |
+| *-t*     | *--model-type*        | *aesthetic*    | *Model type to train aesthetic/technical/both.*              |
+| *-wa*    | *--aes-weights-path*  | *None*         | *Aesthetic Weights file path, if any.*                       |
+| *-wt*    | *--tech-weights-path* | *None*         | *Technical Weights file path, if any.*                       |
+| *-b*     | *--batch-size*        | *64*           | *Train/Test Batch size*                                      |
+| *-e*     | *--epochs*            | *12*           | *Number of epochs, default 10.*                              |
+| *-v*     | *--verbose*           | *0*            | *Verbose, default 0*                                         |
+|          |                       |                |                                                              |
+
+
+
+For e.g. the below command will train the model for Technical model on a sample size of 1000 images using the given weight path for epoch=10 and verbose=1
+
+`python /nima/model/train_model.py -n mobilenet -s 1000 -t technical -tw .\nima\weights\MobileNetV2_weight_best.hdf5 -e 10 -v 1`
 

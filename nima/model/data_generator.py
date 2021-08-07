@@ -8,7 +8,7 @@ from nima.utils import image_utils
 
 
 class NimaDataGenerator(keras.utils.Sequence):
-    def __init__(self, df, img_directory, x_col, y_col, preprocess_input, img_format='jpg',
+    def __init__(self, df, img_directory, x_col, y_col, preprocess_input, img_format='jpg', num_classes=10,
                  is_train=False, batch_size=32, input_size=(224, 224, 3), crop_size=(224, 224),
                  shuffle=True):
         """
@@ -29,7 +29,7 @@ class NimaDataGenerator(keras.utils.Sequence):
         self.batch_size = batch_size
         self.crop_size, self.input_size = crop_size, input_size
         self.shuffle = shuffle
-        self.num_classes = 10
+        self.num_classes = num_classes
         self.model_preprocess_input = preprocess_input
         self.is_train = is_train
         self.img_format = img_format
@@ -53,7 +53,7 @@ class NimaDataGenerator(keras.utils.Sequence):
         # loop for the images in the sample and modify
         for i, row in batch_samples.iterrows():
             # Load the image and resize
-            img_path = os.path.join(self.img_directory, f'{row[self.x_col]}.jpg')
+            img_path = os.path.join(self.img_directory, f'{row[self.x_col]}.{self.img_format}')
             img = image_utils.load_image(img_path, self.input_size)
             # Modify image only for training purpose
             if self.is_train:

@@ -17,7 +17,7 @@ BUILD_TYPE_LIST = ['aesthetic', 'technical']
 
 
 class NIMA:
-    def __init__(self, base_model_name, weights='imagenet', build_type='aesthetic',
+    def __init__(self, base_model_name, weights='imagenet', model_type='aesthetic',
                  input_shape=(224, 224, 3), loss=earth_movers_distance, metrics=None):
         """
         Constructor method
@@ -25,8 +25,8 @@ class NIMA:
         :param base_model_name: Base model name
         :param weights: Weights of the model, initialized to imagenet
         """
-        assert build_type in BUILD_TYPE_LIST, f"Invalid model type, should be from {BUILD_TYPE_LIST}"
-        self.model_type = build_type
+        assert model_type in BUILD_TYPE_LIST, f"Invalid model type, should be from {BUILD_TYPE_LIST}"
+        self.model_type = model_type
         if metrics is None:
             metrics = ['accuracy']
         self.weights = weights
@@ -94,14 +94,15 @@ class NIMA:
         return getattr(self.base_module, 'preprocess_input')
 
     def get_weight_path(self):
-        weight_filename = f'{self.base_model_name}_weight_best.hdf5'
+        weight_filename = f'{self.base_model_name}_{self.model_type}.hdf5'
         return os.path.join(WEIGHTS_DIR, weight_filename)
 
     def train_model(self, train_generator, validation_generator,
                     epochs=32, verbose=0):
         # set model weight and path
-        liveloss_filename = f'{self.base_model_name}_{self.model_type}_best.jpg'
-        weight_filepath = self.get_weight_path()
+        weight_filepath = os.path.join(WEIGHTS_DIR, self.get_weight_path())
+        liveloss_filename = f'{self.base_model_name}_{self.model_type}_best.png'
+
         print(f'Model Weight path : {weight_filepath}')
         print(f'Figure path : {liveloss_filename}')
 
@@ -111,7 +112,7 @@ class NIMA:
             save_weights_only=True,
             monitor="val_loss",
             mode="auto",
-            # save_best_only=True,
+            save_best_only=True,
         )
         lr = ReduceLROnPlateau(monitor='val_loss', patience=2, verbose=verbose)
         plot_loss = PlotLossesKerasTF(outputs=[MatplotlibPlot(figpath=liveloss_filename)])
@@ -122,7 +123,7 @@ class NIMA:
                                  epochs=epochs, callbacks=[es, ckpt, lr, plot_loss],
                                  verbose=verbose)
         end_time = time.perf_counter()
-        print(f'Time taken : {time.strftime("%H:%M:%S", time.gmtime(end_time - start_time))}')
+        print(f'Training Time (HH:MM:SS) : {time.strftime("%H:%M:%S", time.gmtime(end_time - start_time))}')
 
         result_df = pd.DataFrame(history.history)
         return result_df, weight_filepath
