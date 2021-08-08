@@ -1,0 +1,8 @@
+# Train on mobilenet
+python.exe "C:/Users/amaindola/Google Drive/Colab Notebooks/img-quality-assesment/nima/model/train_model.py" -n mobilenet -s 3000 -b 128 -t technical -f True -e 20 -v 1
+
+# Train on nasnet
+python.exe "C:/Users/amaindola/Google Drive/Colab Notebooks/img-quality-assesment/nima/model/train_model.py" -n nasnet -s 3000 -b 128 -t technical -f True -e 20 -v 1
+
+# Train on efficientnet
+python.exe "C:/Users/amaindola/Google Drive/Colab Notebooks/img-quality-assesment/nima/model/train_model.py" -n efficientnet -s 3000 -b 128 -t technical -f True -e 20 -v 1

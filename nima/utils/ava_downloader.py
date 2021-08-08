@@ -20,7 +20,7 @@ import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 
-from nima.config import AVA_DATASET_DIR
+from nima.config import AVA_DATASET_DIR, print_msg
 
 URL_PREFIX = 'http://www.dpchallenge.com/image.php?IMAGE_ID='
 # PROJECT_ROOT_DIR = Path(__file__).resolve().parent.parent.parent
@@ -28,13 +28,6 @@ DATASET_DIR = AVA_DATASET_DIR
 DOWNLOAD_DIR = os.path.join(AVA_DATASET_DIR, 'images')
 # AVA_FILE = os.path.join(AVA_DATASET_DIR, 'AVA.txt')
 img_count = 0
-
-
-def print_msg(message, level=0):
-    """ Print the message in formatted way and writes to the log """
-    seprator = '\t'
-    fmt_msg = f'{level * seprator}{message}'
-    print(fmt_msg)
 
 
 def get_request_soup(url):

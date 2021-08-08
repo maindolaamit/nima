@@ -4,11 +4,10 @@ import os
 import numpy as np
 from keras.losses import mean_squared_error
 
-from nima.config import INPUT_SHAPE, DATASET_DIR, CROP_SHAPE, BUILD_TYPE_LIST
+from nima.config import INPUT_SHAPE, DATASET_DIR, CROP_SHAPE, BUILD_TYPE_LIST, print_msg
 from nima.model.data_generator import TrainDataGenerator, TestDataGenerator
 from nima.model.loss import earth_movers_distance
 from nima.model.model_builder import NIMA
-from nima.utils.ava_downloader import print_msg
 
 
 def train_aesthetic_model(p_model_name, p_dataset_dir, p_sample_size, p_weight_path,
@@ -32,11 +31,6 @@ def train_aesthetic_model(p_model_name, p_dataset_dir, p_sample_size, p_weight_p
 
     # Build the model for training
     nima_aesthetic_cnn.build(p_freeze_base_model)
-    # load model weights if existing
-    # if p_weight_path is not None:
-    #     print_msg(f'Using weight {p_weight_path}')
-    #     nima_aesthetic_cnn.model.load_weights(p_weight_path)
-
     nima_aesthetic_cnn.compile()
     nima_aesthetic_cnn.model.summary()
 
@@ -80,7 +74,6 @@ def train_technical_model(p_model_name, p_dataset_dir, p_sample_size, p_weight_p
     x_col, y_cols = 'image_id', 'rating'
     df_train, df_valid, df_test = load_tid_data(tid_dataset_dir, p_sample_size)
     assert len(df_train) > 0 and len(df_valid) > 0 and len(df_test) > 0, 'Empty dataframe'
-    print_msg(df_train.iloc[0])
     train_batch_size = valid_batch_size = p_batch_size
     test_batch_size = min(p_batch_size, 32, len(df_test))
 
@@ -90,11 +83,6 @@ def train_technical_model(p_model_name, p_dataset_dir, p_sample_size, p_weight_p
 
     # Build the model for training
     nima_technical_cnn.build(p_freeze_base)
-    # load model weights if existing
-    # if p_weight_path is not None:
-    #     print_msg(f'Using weight {p_weight_path}', 1)
-    #     nima_technical_cnn.model.load_weights(p_weight_path)
-
     nima_technical_cnn.compile()
     nima_technical_cnn.model.summary()
 
@@ -115,17 +103,18 @@ def train_technical_model(p_model_name, p_dataset_dir, p_sample_size, p_weight_p
 
     # Test the model
     print_msg("Testing Model...")
-    print_msg(f'Testing Batch size {test_batch_size}', 1)
     # Get the generator
     test_generator = TestDataGenerator(df_test, tid_images_dir, x_col=x_col, y_col=None,
                                        img_format=img_format, num_classes=1,
                                        preprocess_input=nima_technical_cnn.get_preprocess_function(),
                                        batch_size=test_batch_size, input_size=INPUT_SHAPE)
 
-    test_steps = np.ceil(len(test_generator) / test_batch_size)
-    predictions = nima_technical_cnn.model.predict(test_generator, steps=test_steps)
-    print_msg()
-    df_test['predictions'] = predictions
+    # test_steps = np.ceil(len(test_generator) / test_batch_size)
+    print_msg(f'Testing Batch size:{test_batch_size}', 1)
+    predictions = nima_technical_cnn.model.predict(test_generator, use_multiprocessing=True, verbose=p_verbose)
+    # print_msg(predictions)
+    df_test['rating_predict'] = predictions
+    # print(df_test.iloc[0])
     return train_result_df, df_test, train_weights_file
 
 

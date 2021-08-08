@@ -3,7 +3,7 @@ import os
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
-from nima.config import TID_DATASET_DIR
+from nima.config import TID_DATASET_DIR, print_msg
 
 columns = [
     "rating",
@@ -38,7 +38,7 @@ def load_tid_data(tid_dataset=None, sample_size=None):
     tid_df = get_mos_df(tid_dataset)
     if sample_size is None or sample_size > len(tid_df):
         sample_size = len(tid_df)
-    print(f'Number of samples picked {sample_size}')
+    print_msg(f'Number of samples picked {sample_size}', 1)
     df = tid_df.sample(n=sample_size).reset_index(drop=True)
 
     df_train, df_test = train_test_split(df, test_size=0.10, shuffle=True, random_state=1024)

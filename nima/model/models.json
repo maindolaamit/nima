@@ -3,16 +3,20 @@
     "model_package": "tensorflow.keras.applications.vgg19",
     "model_class": "VGG19"
   },
+  "inception": {
+    "model_package": "tensorflow.keras.applications.inception_v3",
+    "model_class": "InceptionV3"
+  },
   "mobilenet": {
     "model_package": "tensorflow.keras.applications.mobilenet_v2",
     "model_class": "MobileNetV2"
   },
-  "nasnet": {
-    "model_package": "tensorflow.keras.applications.nasnet",
-    "model_class": "NASNetMobile"
-  },
   "efficientnet": {
     "model_package": "tensorflow.keras.applications.efficientnet",
     "model_class": "EfficientNetB3"
+  },
+  "nasnet": {
+    "model_package": "tensorflow.keras.applications.nasnet",
+    "model_class": "NASNetMobile"
   }
 }

@@ -4,6 +4,7 @@ from glob import glob
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
+from nima.config import print_msg
 from nima.utils.ava_downloader import AVA_DATASET_DIR
 
 columns = [
@@ -58,11 +59,11 @@ def make_ava_csv(dataset_dir=None):
         dataset_dir = AVA_DATASET_DIR
 
     # Fetch the list of images and Merge the two dataframe on id
-    print('Getting present images list')
+    print_msg('Getting present images list')
     images_dir = os.path.join(dataset_dir, 'images')
     df_images = _get_present_image_namess_df(images_dir)
     df_orig = get_original_ava_df(dataset_dir)
-    print('creating dataframe of images name')
+    print_msg('creating dataframe of images name')
     images_present_list = df_images['image_id'].apply(lambda x: x.split('.')[0]).astype(int).to_list()
     df_images_present = df_orig[df_orig['image_id'].isin(images_present_list)]
     # Save the dataframe to csv
@@ -151,7 +152,7 @@ def load_data(ava_dataset_dir=None, sample_size=None):
     keep_columns = ['image_id'] + count_columns
     if sample_size is None or sample_size > len(ava_csv_df):
         sample_size = len(ava_csv_df)
-    print(f'Number of samples picked {sample_size}')
+    print_msg(f'Number of samples picked {sample_size}', 1)
     df = ava_csv_df[keep_columns].sample(n=sample_size).reset_index(drop=True)
 
     df_train, df_test = train_test_split(df, test_size=0.05, shuffle=True, random_state=1024)

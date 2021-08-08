@@ -18,3 +18,10 @@ AVA_CSV = os.path.join(AVA_DATASET_DIR, 'AVA.csv')
 TID_DATASET_DIR = os.path.join(DATASET_DIR, 'tid2013')
 TID_DATASET_IMAGES_DIR = os.path.join(AVA_DATASET_DIR, 'distorted_images')
 MOS_FILE = os.path.join(TID_DATASET_DIR, 'mos_with_names.txt')
+
+
+def print_msg(message, level=0):
+    """ Print the message in formatted way and writes to the log """
+    separator = '\t'
+    fmt_msg = f'{level * separator}{message}'
+    print(fmt_msg)
