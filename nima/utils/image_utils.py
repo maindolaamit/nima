@@ -13,6 +13,7 @@ def load_image(image_path, target_size=INPUT_SHAPE):
     image = load_img(image_path, target_size=(target_size[0], target_size[1]))  # load the image in pillow format
     image = img_to_array(image)  # convert to numpy array
     # image = image.reshape((1, image.shape[0], image.shape[1], image.shape[2]))
+    image = image / 255.0  # Normalize the image pixel value
     return image
 
 

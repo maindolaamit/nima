@@ -139,6 +139,8 @@ class TestDataGenerator(keras.utils.Sequence):
             img = image_utils.load_image(img_path, self.input_size)
             if img is not None:
                 x[i] = img
+            if self.y_col is not None:
+                y[i] = normalize_label(row[self.y_col])
         # apply base network's preprocessing on the 4D numpy array
         x = self.model_preprocess_input(x)
         # return the image and labels

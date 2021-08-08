@@ -1,13 +1,104 @@
 import argparse
 import os
+import time
 
 import numpy as np
+import pandas as pd
 from keras.losses import mean_squared_error
 
-from nima.config import INPUT_SHAPE, DATASET_DIR, CROP_SHAPE, BUILD_TYPE_LIST, print_msg
+from nima.config import INPUT_SHAPE, DATASET_DIR, CROP_SHAPE, MODEL_BUILD_TYPE, print_msg, WEIGHTS_DIR
 from nima.model.data_generator import TrainDataGenerator, TestDataGenerator
 from nima.model.loss import earth_movers_distance
-from nima.model.model_builder import NIMA
+from nima.model.model_builder import NIMA, model_weight_name
+
+
+def train_model_cv(model_name, model_type, images_dir,
+                   df, x_col, y_cols, img_format, metrics, loss=earth_movers_distance,
+                   batch_size=64, epochs=32, verbose=0, freeze_base_model=False):
+    """
+    Train the final model for the given number of parameters
+    :param model_name:
+    :param model_type:
+    :param images_dir: Images directory
+    :param df:
+    :param x_col: x_col in the DataFrame
+    :param y_cols: y_col in the DataFrame
+    :param img_format: Image format in the directory, to be appended to the image_id
+    :param loss:
+    :param metrics:
+    :param batch_size: Train batch_size
+    :param epochs: Number of epochs
+    :param verbose: verbose
+    :param freeze_base_model:
+    :return: Training result_df and saved models weight path
+    """
+    from sklearn.model_selection import KFold
+    from keras.callbacks import EarlyStopping, ReduceLROnPlateau, CSVLogger, ModelCheckpoint
+    from livelossplot import PlotLossesKerasTF
+    # create a cross fold
+    cv = KFold(n_splits=5, shuffle=True, random_state=1024)
+    fold = 1
+    results_df_folds = acc_folds = loss_folds = []
+    es = EarlyStopping(monitor='val_loss', patience=5, mode='auto', verbose=verbose)
+    lr = ReduceLROnPlateau(monitor='val_loss', patience=2, verbose=verbose)
+    # Loop for each fold
+    for train_index, val_index in cv.split(df[x_col]):
+        df_train, df_val = df.iloc[train_index], df.iloc[val_index]
+        # create the model
+        nima_cnn = NIMA(base_model_name=model_name, model_type=model_type,
+                        input_shape=INPUT_SHAPE, metrics=metrics)
+        nima_cnn.build()
+        nima_cnn.compile()
+
+        # Form the model callbacks
+        model_save_name = f"{model_weight_name(model_name, model_type, freeze_base_model)}_fold{fold}"
+        # Live loss
+        liveloss_filename = os.path.join(WEIGHTS_DIR, model_save_name)
+        from livelossplot.outputs import MatplotlibPlot
+        plot_loss = PlotLossesKerasTF(outputs=[MatplotlibPlot(figpath=liveloss_filename)])
+        # Model checkpoint
+        weight_filepath = os.path.join(WEIGHTS_DIR, model_save_name)
+        ckpt = ModelCheckpoint(
+            filepath=weight_filepath,
+            save_weights_only=True,
+            monitor="val_loss",
+            mode="auto",
+            save_best_only=True,
+        )
+
+        print_msg(f'Model Weight path : {weight_filepath}', 1)
+        csv_log = CSVLogger(f"{model_save_name}.csv")
+        callbacks = [es, ckpt, lr, csv_log, plot_loss]
+
+        # Get the generator
+        train_generator = TrainDataGenerator(df_train, images_dir, x_col=x_col, y_col=y_cols,
+                                             input_size=INPUT_SHAPE, crop_size=CROP_SHAPE,
+                                             img_format=img_format, num_classes=1,
+                                             preprocess_input=nima_cnn.get_preprocess_function(),
+                                             batch_size=batch_size)
+        valid_generator = TrainDataGenerator(df_val, images_dir, x_col, y_cols,
+                                             input_size=INPUT_SHAPE, crop_size=CROP_SHAPE,
+                                             img_format=img_format, num_classes=1,
+                                             preprocess_input=nima_cnn.get_preprocess_function(),
+                                             batch_size=batch_size)
+
+        # start training
+        start_time = time.perf_counter()
+        history = nima_cnn.model.fit(train_generator, validation_data=valid_generator,
+                                     epochs=epochs, callbacks=callbacks,
+                                     verbose=verbose, use_multiprocessing=True)
+        end_time = time.perf_counter()
+        print_msg(f'Training Time (HH:MM:SS) : {time.strftime("%H:%M:%S", time.gmtime(end_time - start_time))}', 1)
+        result_df = pd.DataFrame(history.history)
+        result_df['fold'] = fold
+        results_df_folds.append(result_df)
+        # Evaluate model
+        loss, acc = nima_cnn.model.evaluate(train_generator)
+        acc_folds.append(acc)
+        loss_folds.append(loss)
+
+        fold += 1
+    return pd.concat(results_df_folds)
 
 
 def train_aesthetic_model(p_model_name, p_dataset_dir, p_sample_size, p_weight_path,
@@ -64,6 +155,19 @@ def train_aesthetic_model(p_model_name, p_dataset_dir, p_sample_size, p_weight_p
 
 def train_technical_model(p_model_name, p_dataset_dir, p_sample_size, p_weight_path,
                           p_freeze_base, p_batch_size, p_metrics, p_epochs, p_verbose):
+    """
+    Trains an aesthetic model for the given parameters.
+    :param p_model_name:
+    :param p_dataset_dir:
+    :param p_sample_size:
+    :param p_weight_path:
+    :param p_freeze_base:
+    :param p_batch_size:
+    :param p_metrics: use ['mean_absolute_error'] for regression
+    :param p_epochs:
+    :param p_verbose:
+    :return:
+    """
     from nima.utils.tid_dataset_utils import load_tid_data
     tid_dataset_dir = os.path.join(p_dataset_dir, 'tid2013')
     tid_images_dir = os.path.join(tid_dataset_dir, 'distorted_images')
@@ -129,7 +233,7 @@ if __name__ == '__main__':
                         help='Sample size, None for full size.')
     parser.add_argument('-m', '--metrics', type=list, default=['accuracy'], required=False,
                         help="Evaluation Metric if any, default is accuracy.")
-    parser.add_argument('-t', '--model-type', type=str, default=BUILD_TYPE_LIST[0], required=False,
+    parser.add_argument('-t', '--model-type', type=str, default=MODEL_BUILD_TYPE[0], required=False,
                         help="Model type to train aesthetic/technical/both.")
     parser.add_argument('-wa', '--aes-weights-path', type=str, default=None, required=False,
                         help="Aesthetic Weights file path, if any.")
@@ -168,7 +272,7 @@ if __name__ == '__main__':
     arg_metrics = args.__dict__['metrics']
 
     # Train the aesthetic model
-    if arg_model_type in [BUILD_TYPE_LIST[0], 'both']:
+    if arg_model_type in [MODEL_BUILD_TYPE[0], 'both']:
         aes_train_result_df, aes_test_df, aes_weight_file = train_aesthetic_model(p_model_name=arg_model_name,
                                                                                   p_dataset_dir=arg_dataset_dir,
                                                                                   p_sample_size=arg_sample_size,
@@ -179,7 +283,7 @@ if __name__ == '__main__':
                                                                                   p_epochs=arg_epochs,
                                                                                   p_verbose=arg_verbose)
     # Train the technical model
-    if arg_model_type in [BUILD_TYPE_LIST[1], 'both']:
+    if arg_model_type in [MODEL_BUILD_TYPE[1], 'both']:
         tech_train_result_df, tech_test_df, tech_weight_file = train_technical_model(p_model_name=arg_model_name,
                                                                                      p_dataset_dir=arg_dataset_dir,
                                                                                      p_sample_size=arg_sample_size,

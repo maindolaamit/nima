@@ -25,9 +25,10 @@ def get_mos_df(dataset_dir=None):
     return df
 
 
-def load_tid_data(tid_dataset=None, sample_size=None):
+def load_tid_data(tid_dataset=None, sample_size=None, require_valid_data=True):
     """
     Get the Training, Validation and Testing data as Dataframes.
+    :param require_valid_data: If yes validation data will also be given
     :param tid_dataset: TID Dataset directory.
     :param sample_size: Number of samples to use
     :return:
@@ -42,6 +43,8 @@ def load_tid_data(tid_dataset=None, sample_size=None):
     df = tid_df.sample(n=sample_size).reset_index(drop=True)
 
     df_train, df_test = train_test_split(df, test_size=0.10, shuffle=True, random_state=1024)
-    df_train, df_valid = train_test_split(df_train, test_size=0.2, shuffle=True, random_state=1024)
-
-    return df_train.reset_index(drop=True), df_valid.reset_index(drop=True), df_test.reset_index(drop=True)
+    if require_valid_data:
+        df_train, df_valid = train_test_split(df_train, test_size=0.2, shuffle=True, random_state=1024)
+        return df_train.reset_index(drop=True), df_valid.reset_index(drop=True), df_test.reset_index(drop=True)
+    else:
+        return df_train.reset_index(drop=True), df_test.reset_index(drop=True)

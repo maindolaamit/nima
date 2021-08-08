@@ -3,20 +3,50 @@ import os
 import time
 
 import pandas as pd
-from keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
+from keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau, CSVLogger
 from livelossplot import PlotLossesKerasTF
 from livelossplot.outputs import MatplotlibPlot
+from matplotlib import pyplot as plt
 from tensorflow.keras.layers import Dropout, Dense
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 
-from nima.config import MODELS_JSON_FILE_PATH, WEIGHTS_DIR, BUILD_TYPE_LIST, print_msg
+from nima.config import MODELS_JSON_FILE_PATH, WEIGHTS_DIR, MODEL_BUILD_TYPE, print_msg, INPUT_SHAPE, CROP_SHAPE
 from nima.model.loss import earth_movers_distance
 
 
+def get_models_dict():
+    """
+    Get the Models dictionary from the JSON file
+    :return:
+    """
+    import json
+    with open(MODELS_JSON_FILE_PATH) as model_json_file:
+        models = json.load(model_json_file)
+    return models
+
+
+def model_weight_name(model_name, model_type=MODEL_BUILD_TYPE[0], freeze_base_model=True):
+    """
+    Returns the name of the model based on the given parameters.
+    Use this method to make sure naming convention is followed
+    :param model_name: model name, should be in models.json
+    :param model_type: NIMA model type
+    :param freeze_base_model: Freebase model
+    :return: model weight file name
+    """
+    models = get_models_dict()
+    assert model_name in models.keys(), f"Invalid model name {model_name}, should have one of the value {models.keys()}"
+    base_model_name = models[model_name]['model_class']
+    weight_filename = f'{base_model_name}_{model_type}' \
+                      f'{"_all-freezed" if freeze_base_model else "_all-trained"}'
+    return weight_filename
+
+
 class NIMA:
-    def __init__(self, base_model_name, base_cnn_weight='imagenet', weights=None, model_type=BUILD_TYPE_LIST[0],
-                 input_shape=(224, 224, 3), loss=earth_movers_distance, metrics=None):
+
+    def __init__(self, base_model_name, base_cnn_weight='imagenet', weights=None, freeze_base_model=True,
+                 model_type=MODEL_BUILD_TYPE[0], input_shape=(224, 224, 3), loss=earth_movers_distance, metrics=None):
         """
         Constructor method
         :rtype: NIMA class object - A deep Learning CNN Model
@@ -24,55 +54,55 @@ class NIMA:
         :param weights: Weights of the model, initialized to imagenet
         """
         self.base_cnn_weight = base_cnn_weight
-        assert model_type in BUILD_TYPE_LIST, f"Invalid model type, should be from {BUILD_TYPE_LIST}"
+        assert model_type in MODEL_BUILD_TYPE, f"Invalid model type, should be from {MODEL_BUILD_TYPE}"
         self.model_type = model_type
         if metrics is None:
             metrics = ['accuracy']
+        self.metrics = metrics
         self.learning_rate = 0.001
         self.weights = weights
+        self.freeze_base_model = freeze_base_model
         self.input_shape = input_shape
-        self.model_name = base_model_name
         self.loss = loss
-        self.metrics = metrics
-        self.base_model_name = None
+        self.model_name = base_model_name
+        self.model_class_name = None
         self.base_model = None
         self.model = None
         # Set the model properties.
-        self._get_base_module(base_model_name)
+        self._get_base_module()
 
-    def _get_base_module(self, model_name):
+    def _get_base_module(self):
         """
         Get the base model based on the base model name
-        :param model_name: Base model name
         :return: Base models' library
         """
-        import json
-        with open(MODELS_JSON_FILE_PATH) as model_json_file:
-            models = json.load(model_json_file)
-        assert model_name in models.keys(), f"Invalid model name, should have one of the value {models.keys()}"
-        self.base_model_name = models[model_name]['model_class']
-        model_package = models[model_name]['model_package']
+        # import json
+        # with open(MODELS_JSON_FILE_PATH) as model_json_file:
+        #     models = json.load(model_json_file)
+        models = get_models_dict()
+        assert self.model_name in models.keys(), f"Invalid model name {self.model_name}, should have one of the value {models.keys()}"
+        self.model_class_name = models[self.model_name]['model_class']
+        model_package = models[self.model_name]['model_package']
         self.base_module = importlib.import_module(model_package)
-        print_msg(f"NIMA Base CNN module - {model_package}.{self.base_model_name}", 1)
+        print_msg(f"NIMA Base CNN module - {model_package}.{self.model_class_name}", 1)
 
-    def build(self, freeze_base_model=True):
+    def build(self):
         """
         Build the CNN model for Neural Image Assessment
         """
         # Load pre trained model
-        base_cnn = getattr(self.base_module, self.base_model_name)
+        base_cnn = getattr(self.base_module, self.model_class_name)
         # Set the model properties
         self.base_model = base_cnn(input_shape=self.input_shape, weights=self.base_cnn_weight,
                                    pooling='avg', include_top=False)
         # Freeze/UnFreeze base model layers if true
-        self.freeze_base_model = freeze_base_model
-        if freeze_base_model:
+        if self.freeze_base_model:
             print_msg('Freezing base CNN layers.', 1)
         else:
             print_msg('Allowing training on base CNN layers.', 1)
 
         for layer in self.base_model.layers:
-            layer.trainable = not freeze_base_model
+            layer.trainable = not self.freeze_base_model
 
         # add dropout and dense layer
         x = Dropout(.2)(self.base_model.output)
@@ -106,18 +136,42 @@ class NIMA:
         preprocess_input = self.get_preprocess_function()
         return preprocess_input(x)
 
-    def _get_weight_filename(self):
-        weight_filename = f'{self.base_model_name}_{self.model_type}' \
+    def _liveloss_before_subplot(self, fig: plt.Figure, axs: plt.Axes, num_lg: int):
+        """Add figure title"""
+        fig.suptitle(f'{self.model_class_name}')
+        # fig.set_figheight(8)
+        # fig.set_figwidth(14)
+
+    def _get_model_weight_name(self):
+        weight_filename = f'{self.model_class_name}_{self.model_type}' \
                           f'{"_all-freezed" if self.freeze_base_model else "_all-trained"}'
         return weight_filename
 
-    def get_weight_path(self):
-        """
-        Forms the model's weight path  based on the model name and type
-        :rtype: Model's weight path
-        """
-        weight_filename = f'{self._get_weight_filename()}.hdf5'
-        return os.path.join(WEIGHTS_DIR, weight_filename)
+    def _get_liveloss_plot(self, liveloss_filename):
+        print_msg(f'Figure path : {liveloss_filename}', 1)
+        plot = MatplotlibPlot(figpath=liveloss_filename, before_plots=self._liveloss_before_subplot)
+        return plot
+
+    def get_callbacks(self, verbose):
+        es = EarlyStopping(monitor='val_loss', patience=5, mode='auto', verbose=verbose)
+        lr = ReduceLROnPlateau(monitor='val_loss', patience=2, verbose=verbose)
+        model_save_name = self._get_model_weight_name()
+        # Live loss
+        liveloss_filename = os.path.join(WEIGHTS_DIR, model_save_name + ".png")
+        plot_loss = PlotLossesKerasTF(outputs=[self._get_liveloss_plot(liveloss_filename)])
+        # Model checkpoint
+        weight_filepath = os.path.join(WEIGHTS_DIR, model_save_name + ".hdf5")
+        checkpoint = ModelCheckpoint(
+            filepath=weight_filepath,
+            save_weights_only=True,
+            monitor="val_loss",
+            mode="auto",
+            save_best_only=True,
+        )
+
+        print_msg(f'Model Weight path : {weight_filepath}', 1)
+        csv_log = CSVLogger(model_save_name + ".csv")
+        return [es, checkpoint, lr, csv_log, plot_loss]
 
     def train_model(self, train_generator, validation_generator,
                     epochs=32, verbose=0):
@@ -129,31 +183,35 @@ class NIMA:
         :param verbose: verbose
         :return: Training result_df and saved models weight path
         """
-        # set model weight and path
-        weight_filepath = self.get_weight_path()
-        train_loss_filename = os.path.join(WEIGHTS_DIR, f'{self._get_weight_filename()}.png')
-
-        print_msg(f'Model Weight path : {weight_filepath}', 1)
-        print_msg(f'Figure path : {train_loss_filename}', 1)
-
-        es = EarlyStopping(monitor='val_loss', patience=4, verbose=verbose)
-        ckpt = ModelCheckpoint(
-            filepath=weight_filepath,
-            save_weights_only=True,
-            monitor="val_loss",
-            mode="auto",
-            save_best_only=True,
-        )
-        lr = ReduceLROnPlateau(monitor='val_loss', patience=2, verbose=verbose)
-        plot_loss = PlotLossesKerasTF(outputs=[MatplotlibPlot(figpath=train_loss_filename)])
-
+        # ### Set the callbacks ###
+        # es = EarlyStopping(monitor='val_loss', patience=4, verbose=verbose)
+        # # set model weight and path
+        # weight_filepath = self.get_weight_path()
+        # print_msg(f'Model Weight path : {weight_filepath}', 1)
+        #
+        # ckpt = ModelCheckpoint(
+        #     filepath=weight_filepath,
+        #     save_weights_only=True,
+        #     monitor="val_loss",
+        #     mode="auto",
+        #     save_best_only=True,
+        # )
+        # lr = ReduceLROnPlateau(monitor='val_loss', patience=2, verbose=verbose)
+        # plot_loss = PlotLossesKerasTF(outputs=[self._get_liveloss_plot()])
+        callbacks = self.get_callbacks(verbose)
         # start training
         start_time = time.perf_counter()
         history = self.model.fit(train_generator, validation_data=validation_generator,
-                                 epochs=epochs, callbacks=[es, ckpt, lr, plot_loss],
+                                 epochs=epochs, callbacks=callbacks,
                                  verbose=verbose, use_multiprocessing=True)
         end_time = time.perf_counter()
         print_msg(f'Training Time (HH:MM:SS) : {time.strftime("%H:%M:%S", time.gmtime(end_time - start_time))}', 1)
 
         result_df = pd.DataFrame(history.history)
-        return result_df, weight_filepath
+        return result_df
+
+    def evaluate_model(self, df_test, test_generator):
+        predictions = self.model.predict(test_generator)
+        df_test['y_pred'] = predictions
+        loss, acc = self.model.evaluate()
+        return df_test, loss, acc
