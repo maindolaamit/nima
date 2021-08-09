@@ -2,6 +2,7 @@ import importlib
 import os
 import time
 
+import numpy as np
 import pandas as pd
 from keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau, CSVLogger
 from livelossplot import PlotLossesKerasTF
@@ -86,6 +87,16 @@ class NIMA:
         self.base_module = importlib.import_module(model_package)
         print_msg(f"NIMA Base CNN module - {model_package}.{self.model_class_name}", 1)
 
+    def freeze_all_layers(self):
+        print_msg('Freezing all base CNN layers.', 1)
+        for layer in self.base_model.layers:
+            layer.trainable = False
+
+    def train_all_layers(self):
+        print_msg('Allowing training on base CNN layers.', 1)
+        for layer in self.base_model.layers:
+            layer.trainable = True
+
     def build(self):
         """
         Build the CNN model for Neural Image Assessment
@@ -97,12 +108,9 @@ class NIMA:
                                    pooling='avg', include_top=False)
         # Freeze/UnFreeze base model layers if true
         if self.freeze_base_model:
-            print_msg('Freezing base CNN layers.', 1)
+            self.freeze_all_layers()
         else:
-            print_msg('Allowing training on base CNN layers.', 1)
-
-        for layer in self.base_model.layers:
-            layer.trainable = not self.freeze_base_model
+            self.train_all_layers()
 
         # add dropout and dense layer
         x = Dropout(.2)(self.base_model.output)
@@ -122,7 +130,7 @@ class NIMA:
         # Load existing weight and Compile the Model
         if self.weights is not None:
             print_msg(f'Loading existing weights file {self.weights}', 1)
-            self.model.compile(optimizer=Adam(self.learning_rate), loss=self.loss, metrics=self.metrics)
+            # self.model.compile(optimizer=Adam(self.learning_rate), loss=self.loss, metrics=self.metrics)
             self.model.load_weights(weights=self.weights)
         print_msg("Model compiled successfully.", 1)
 
@@ -136,13 +144,13 @@ class NIMA:
         preprocess_input = self.get_preprocess_function()
         return preprocess_input(x)
 
-    def _liveloss_before_subplot(self, fig: plt.Figure, axs: plt.Axes, num_lg: int):
+    def _liveloss_before_subplot(self, fig: plt.Figure, axs: np.ndarray, num_lg: int):
         """Add figure title"""
-        fig.suptitle(f'{self.model_class_name}')
-        # fig.set_figheight(8)
-        # fig.set_figwidth(14)
+        fig.suptitle(f'{self.model_class_name}', fontsize=10, weight='bold', color='green')
+        fig.set_figheight(6)
+        fig.set_figwidth(10)
 
-    def _get_model_weight_name(self):
+    def get_naming_prefix(self):
         weight_filename = f'{self.model_class_name}_{self.model_type}' \
                           f'{"_all-freezed" if self.freeze_base_model else "_all-trained"}'
         return weight_filename
@@ -155,7 +163,7 @@ class NIMA:
     def get_callbacks(self, verbose):
         es = EarlyStopping(monitor='val_loss', patience=5, mode='auto', verbose=verbose)
         lr = ReduceLROnPlateau(monitor='val_loss', patience=2, verbose=verbose)
-        model_save_name = self._get_model_weight_name()
+        model_save_name = self.get_naming_prefix()
         # Live loss
         liveloss_filename = os.path.join(WEIGHTS_DIR, model_save_name + ".png")
         plot_loss = PlotLossesKerasTF(outputs=[self._get_liveloss_plot(liveloss_filename)])
@@ -170,7 +178,10 @@ class NIMA:
         )
 
         print_msg(f'Model Weight path : {weight_filepath}', 1)
-        csv_log = CSVLogger(model_save_name + ".csv")
+        # csv logger
+        log_filepath = os.path.join(WEIGHTS_DIR,model_save_name + "_log.csv")
+        csv_log = CSVLogger(log_filepath)
+        print_msg(f'Model log path : {log_filepath}', 1)
         return [es, checkpoint, lr, csv_log, plot_loss]
 
     def train_model(self, train_generator, validation_generator,
@@ -183,21 +194,6 @@ class NIMA:
         :param verbose: verbose
         :return: Training result_df and saved models weight path
         """
-        # ### Set the callbacks ###
-        # es = EarlyStopping(monitor='val_loss', patience=4, verbose=verbose)
-        # # set model weight and path
-        # weight_filepath = self.get_weight_path()
-        # print_msg(f'Model Weight path : {weight_filepath}', 1)
-        #
-        # ckpt = ModelCheckpoint(
-        #     filepath=weight_filepath,
-        #     save_weights_only=True,
-        #     monitor="val_loss",
-        #     mode="auto",
-        #     save_best_only=True,
-        # )
-        # lr = ReduceLROnPlateau(monitor='val_loss', patience=2, verbose=verbose)
-        # plot_loss = PlotLossesKerasTF(outputs=[self._get_liveloss_plot()])
         callbacks = self.get_callbacks(verbose)
         # start training
         start_time = time.perf_counter()

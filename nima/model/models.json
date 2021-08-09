@@ -1,11 +1,19 @@
 {
   "vgg": {
+    "model_package": "tensorflow.keras.applications.vgg16",
+    "model_class": "VGG16"
+  },
+  "vgg19": {
     "model_package": "tensorflow.keras.applications.vgg19",
     "model_class": "VGG19"
   },
   "inception": {
     "model_package": "tensorflow.keras.applications.inception_v3",
     "model_class": "InceptionV3"
+  },
+  "resnet": {
+    "model_package": "tensorflow.keras.applications.inception_resnet_v2",
+    "model_class": "InceptionResNetV2"
   },
   "mobilenet": {
     "model_package": "tensorflow.keras.applications.mobilenet_v2",

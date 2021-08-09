@@ -6,3 +6,7 @@ python.exe "C:/Users/amaindola/Google Drive/Colab Notebooks/img-quality-assesmen
 
 # Train on efficientnet
 python.exe "C:/Users/amaindola/Google Drive/Colab Notebooks/img-quality-assesment/nima/model/train_model.py" -n efficientnet -s 3000 -b 128 -t technical -f True -e 20 -v 1
+
+
+Dataset url
+https://expediacorp-my.sharepoint.com/:f:/g/personal/amaindola_sea_corp_expecn_com/EjSlgz7f335InGGzSmgyB0kBbCwJAdlVNQW79jqn8jB1Fg?e=2NKtmR
