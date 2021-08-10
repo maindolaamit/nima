@@ -2,17 +2,16 @@ import argparse
 import os
 import time
 
-import numpy as np
 import pandas as pd
+# Disable extra logs
+import tensorflow as tf
 from keras.losses import mean_squared_error
 
-from nima.config import INPUT_SHAPE, DATASET_DIR, CROP_SHAPE, MODEL_BUILD_TYPE, print_msg, WEIGHTS_DIR
+from nima.config import INPUT_SHAPE, DATASET_DIR, CROP_SHAPE, MODEL_BUILD_TYPE, print_msg, WEIGHTS_DIR, TID_DATASET_DIR
+from nima.evaluate.evaluate_model import eval_technical_model
 from nima.model.data_generator import TrainDataGenerator, TestDataGenerator
 from nima.model.loss import earth_movers_distance
 from nima.model.model_builder import NIMA, model_weight_name
-
-# Disable extra logs
-import tensorflow as tf
 
 tf.get_logger().setLevel('ERROR')  # Limit the tensorflow logs to ERROR only
 
@@ -122,7 +121,7 @@ def train_aesthetic_model(p_model_name, p_dataset_dir, p_sample_size, p_weight_p
     test_batch_size = min(p_batch_size, 32, len(df_test))
 
     # Form the NIMA Aesthetic Model
-    nima_aesthetic_cnn = NIMA(base_model_name=p_model_name, weights=p_weight_path, model_type='aesthetic',
+    nima_aesthetic_cnn = NIMA(base_model_name=p_model_name, model_weights=p_weight_path, model_type='aesthetic',
                               loss=earth_movers_distance, input_shape=INPUT_SHAPE, metrics=p_metrics)
 
     # Build the model for training
@@ -158,15 +157,14 @@ def train_aesthetic_model(p_model_name, p_dataset_dir, p_sample_size, p_weight_p
     return train_result_df, df_test, train_weights_file
 
 
-def train_technical_model(p_model_name, p_dataset_dir, p_sample_size, p_weight_path,
-                          p_freeze_base, p_batch_size, p_metrics, p_epochs, p_verbose):
+def train_technical_model(p_model_name, p_dataset_dir, p_sample_size, p_loss,
+                          p_batch_size, p_metrics, p_epochs, p_verbose):
     """
     Trains an aesthetic model for the given parameters.
     :param p_model_name:
     :param p_dataset_dir:
     :param p_sample_size:
     :param p_weight_path:
-    :param p_freeze_base:
     :param p_batch_size:
     :param p_metrics: use ['mean_absolute_error'] for regression
     :param p_epochs:
@@ -174,7 +172,7 @@ def train_technical_model(p_model_name, p_dataset_dir, p_sample_size, p_weight_p
     :return:
     """
     from nima.utils.tid_dataset_utils import load_tid_data
-    tid_dataset_dir = os.path.join(p_dataset_dir, 'tid2013')
+    tid_dataset_dir = TID_DATASET_DIR if p_dataset_dir is None else p_dataset_dir
     tid_images_dir = os.path.join(tid_dataset_dir, 'distorted_images')
     img_format = 'bmp'
     print_msg(f'Images directory {tid_images_dir}')
@@ -187,9 +185,8 @@ def train_technical_model(p_model_name, p_dataset_dir, p_sample_size, p_weight_p
     test_batch_size = min(p_batch_size, 32, len(df_test))
 
     # Form the NIMA Aesthetic Model
-    nima_tech_cnn = NIMA(base_model_name=p_model_name, weights=p_weight_path, model_type='technical',
-                         loss=mean_squared_error, input_shape=INPUT_SHAPE, metrics=p_metrics,
-                         freeze_base_model=p_freeze_base)
+    nima_tech_cnn = NIMA(base_model_name=p_model_name, model_weights='imagenet', model_type='technical',
+                         loss=p_loss, input_shape=INPUT_SHAPE, metrics=p_metrics, )
 
     # Build the model for training
     nima_tech_cnn.build()
@@ -203,7 +200,7 @@ def train_technical_model(p_model_name, p_dataset_dir, p_sample_size, p_weight_p
                                          batch_size=train_batch_size, input_size=INPUT_SHAPE, crop_size=CROP_SHAPE)
     valid_generator = TrainDataGenerator(df_valid, tid_images_dir, x_col, y_cols, img_format=img_format, num_classes=1,
                                          preprocess_input=nima_tech_cnn.get_preprocess_function(),
-                                         batch_size=train_batch_size, input_size=INPUT_SHAPE, crop_size=CROP_SHAPE)
+                                         batch_size=valid_batch_size, input_size=INPUT_SHAPE, crop_size=CROP_SHAPE)
 
     # Train the model
     print_msg("Training Technical Model...")
@@ -211,34 +208,31 @@ def train_technical_model(p_model_name, p_dataset_dir, p_sample_size, p_weight_p
     train_result_df = nima_tech_cnn.train_model(train_generator, valid_generator, epochs=p_epochs,
                                                 verbose=p_verbose)
 
-    # # start training all layers
-    # nima_technical_cnn.train_all_layers()
-    # nima_technical_cnn.compile()
-    # train_result_df, train_weights_file = nima_technical_cnn.train_model(train_generator, valid_generator,
-    #                                                                      epochs=p_epochs, verbose=p_verbose)
-
     # Test the model
     print_msg("Testing Model...")
+    df_test = eval_technical_model(p_model_name=p_model_name, p_test_df=df_test,
+                                   p_loss=p_loss, p_metrics=['mean_absolute_error'],
+                                   p_batch_size=test_batch_size, p_verbose=p_verbose)
     # Get the generator
-    test_generator = TestDataGenerator(df_test, tid_images_dir, x_col=x_col, y_col=None,
-                                       img_format=img_format, num_classes=1,
-                                       preprocess_input=nima_tech_cnn.get_preprocess_function(),
-                                       batch_size=test_batch_size, input_size=INPUT_SHAPE)
-
-    train_weights_file = nima_tech_cnn.get_naming_prefix() + '.hdf5'
-    predict_df_filename = nima_tech_cnn.get_naming_prefix() + '_pred.csv'
-
-    nima_tech_cnn_test = NIMA(base_model_name=p_model_name, weights=train_weights_file, model_type='technical',
-                              loss=mean_squared_error, input_shape=INPUT_SHAPE, metrics=p_metrics,
-                              freeze_base_model=p_freeze_base)
-    nima_tech_cnn_test.build()
-    nima_tech_cnn_test.compile()
-    # test_steps = np.ceil(len(test_generator) / test_batch_size)
-    print_msg(f'Testing Batch size:{test_batch_size}', 1)
-    predictions = nima_tech_cnn_test.model.predict(test_generator, use_multiprocessing=True, verbose=p_verbose)
-    df_test['rating_predict'] = predictions
-    df_test.to_csv(predict_df_filename, index=False)
-    print(df_test.iloc[0])
+    # test_generator = TestDataGenerator(df_test, tid_images_dir, x_col=x_col, y_col=None,
+    #                                    img_format=img_format, num_classes=1,
+    #                                    preprocess_input=nima_tech_cnn.get_preprocess_function(),
+    #                                    batch_size=test_batch_size, input_size=INPUT_SHAPE)
+    #
+    # train_weights_file = nima_tech_cnn.get_naming_prefix() + '.hdf5'
+    # predict_df_filename = nima_tech_cnn.get_naming_prefix() + '_pred.csv'
+    #
+    # nima_tech_cnn_test = NIMA(base_model_name=p_model_name, weights=train_weights_file, model_type='technical',
+    #                           loss=mean_squared_error, input_shape=INPUT_SHAPE, metrics=p_metrics,
+    #                           freeze_base_model=p_freeze_base)
+    # nima_tech_cnn_test.build()
+    # nima_tech_cnn_test.compile()
+    # # test_steps = np.ceil(len(test_generator) / test_batch_size)
+    # print_msg(f'Testing Batch size:{test_batch_size}', 1)
+    # predictions = nima_tech_cnn_test.model.predict(test_generator, use_multiprocessing=True, verbose=p_verbose)
+    # df_test['rating_predict'] = predictions
+    # df_test.to_csv(predict_df_filename, index=False)
+    # print(df_test.iloc[0])
     return train_result_df, df_test,
 
 
@@ -301,8 +295,8 @@ if __name__ == '__main__':
                                                                                      p_dataset_dir=arg_dataset_dir,
                                                                                      p_sample_size=arg_sample_size,
                                                                                      p_weight_path=arg_aes_weight_path,
-                                                                                     p_freeze_base=arg_freeze_base,
+                                                                                     # p_freeze_base=arg_freeze_base,
                                                                                      p_batch_size=arg_batch_size,
-                                                                                     p_metrics=['mean_absolute_error'],
+                                                                                     # p_metrics=['mean_absolute_error'],
                                                                                      p_epochs=arg_epochs,
                                                                                      p_verbose=arg_verbose)

@@ -46,29 +46,33 @@ def model_weight_name(model_name, model_type=MODEL_BUILD_TYPE[0], freeze_base_mo
 
 class NIMA:
 
-    def __init__(self, base_model_name, base_cnn_weight='imagenet', weights=None, freeze_base_model=True,
-                 model_type=MODEL_BUILD_TYPE[0], input_shape=(224, 224, 3), loss=earth_movers_distance, metrics=None):
+    def __init__(self, base_model_name, model_type=MODEL_BUILD_TYPE[0],
+                 base_cnn_weight='imagenet', model_weights=None,
+                 base_cnn_lr=1e-4, model_lr=None,
+                 input_shape=INPUT_SHAPE, loss=earth_movers_distance, metrics=None):
         """
         Constructor method
         :rtype: NIMA class object - A deep Learning CNN Model
         :param base_model_name: Base model name
-        :param weights: Weights of the model, initialized to imagenet
+        :param model_weights: Weights of the model, initialized to imagenet
         """
-        self.base_cnn_weight = base_cnn_weight
+        self.model_lr = model_lr
+        self.base_cnn_lr = base_cnn_lr
         assert model_type in MODEL_BUILD_TYPE, f"Invalid model type, should be from {MODEL_BUILD_TYPE}"
         self.model_type = model_type
         if metrics is None:
             metrics = ['accuracy']
         self.metrics = metrics
         self.learning_rate = 0.001
-        self.weights = weights
-        self.freeze_base_model = freeze_base_model
+        self.base_cnn_weight = base_cnn_weight
+        self.weights = model_weights
         self.input_shape = input_shape
         self.loss = loss
         self.model_name = base_model_name
         self.model_class_name = None
         self.base_model = None
         self.model = None
+        self.freeze_base_cnn = True
         # Set the model properties.
         self._get_base_module()
 
@@ -107,14 +111,15 @@ class NIMA:
         self.base_model = base_cnn(input_shape=self.input_shape, weights=self.base_cnn_weight,
                                    pooling='avg', include_top=False)
 
-        # add dropout and dense layer
-        x = Dropout(.2)(self.base_model.output)
-
         # check the model type if aesthetic or technical
         if self.model_type == 'aesthetic':
+            # add dropout and dense layer
+            x = Dropout(.75)(self.base_model.output)
             x = Dense(10, activation='softmax')(x)
         else:
-            x = Dense(1, activation='relu')(x)
+            x = Dropout(.2)(self.base_model.output)
+            # x = Dense(128, activation='relu')(self.base_model.output)
+            x = Dense(1, )(x)
 
         # Assign the class model
         self.model = Model(self.base_model.input, x)
@@ -146,10 +151,9 @@ class NIMA:
         fig.set_figheight(6)
         fig.set_figwidth(10)
 
-
     def get_naming_prefix(self):
         weight_filename = f'{self.model_class_name}_{self.model_type}' \
-                          f'{"_all-freezed" if self.freeze_base_model else "_all-trained"}'
+                          f'{"_all-freezed" if self.freeze_base_cnn else "_all-trained"}'
         return weight_filename
 
     def _get_liveloss_plot(self, liveloss_filename):
@@ -176,7 +180,7 @@ class NIMA:
 
         print_msg(f'Model Weight path : {weight_filepath}', 1)
         # csv logger
-        log_filepath = os.path.join(WEIGHTS_DIR,model_save_name + "_log.csv")
+        log_filepath = os.path.join(WEIGHTS_DIR, model_save_name + "_log.csv")
         csv_log = CSVLogger(log_filepath)
         print_msg(f'Model log path : {log_filepath}', 1)
         return [es, checkpoint, lr, csv_log, plot_loss]

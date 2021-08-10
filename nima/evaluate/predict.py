@@ -38,7 +38,7 @@ if __name__ == '__main__':
     # Load the dataset
     df_test = get_images_df(images_dir)
     # Form the NIMA Model
-    nima_cnn = NIMA(base_model_name=arg_model_name, weights='imagenet', input_shape=INPUT_SHAPE,
+    nima_cnn = NIMA(base_model_name=arg_model_name, model_weights='imagenet', input_shape=INPUT_SHAPE,
                     metrics=['accuracy'])
     nima_cnn.build()
     # load model weights

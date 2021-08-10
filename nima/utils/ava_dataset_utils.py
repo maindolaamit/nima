@@ -50,13 +50,18 @@ def _get_present_image_namess_df(image_dir):
     return df_image
 
 
+def _get_dataset_dir(dataset_dir):
+    if dataset_dir is None:
+        dataset_dir = AVA_DATASET_DIR
+    return dataset_dir
+
+
 def make_ava_csv(dataset_dir=None):
     """
     Look for the images present in the given dataset directory and create/update the AVA.csv file
     :param dataset_dir: Path of the AVA Dataset, should have a folder images having actual images in it.
     """
-    if dataset_dir is None:
-        dataset_dir = AVA_DATASET_DIR
+    dataset_dir = _get_dataset_dir(dataset_dir)
 
     # Fetch the list of images and Merge the two dataframe on id
     print_msg('Getting present images list')
@@ -76,8 +81,7 @@ def get_ava_csv_df(dataset_dir=None):
     :param dataset_dir: AVA Dataset directory.
     :return: Pandas DataFrame from AVA.csv
     """
-    if dataset_dir is None:
-        dataset_dir = AVA_DATASET_DIR
+    dataset_dir = _get_dataset_dir(dataset_dir)
     df = pd.read_csv(os.path.join(dataset_dir, 'AVA.csv'))
     return df
 
@@ -88,9 +92,7 @@ def get_original_ava_df(dataset_dir=None):
     :param dataset_dir: AVA dataset directory
     :return: Pandas DataFrame
     """
-    if dataset_dir is None:
-        dataset_dir = AVA_DATASET_DIR
-
+    dataset_dir = _get_dataset_dir(dataset_dir)
     ava_file = os.path.join(dataset_dir, 'AVA.txt')
     return pd.read_csv(ava_file, sep=' ', header=None, names=columns, )
 
@@ -125,26 +127,24 @@ def get_tags_df(dataset_dir=None):
     :param dataset_dir: AVA Dataset directory.
     :return: Pandas DataFrame
     """
-    if dataset_dir is None:
-        dataset_dir = AVA_DATASET_DIR
+    dataset_dir = _get_dataset_dir(dataset_dir)
     df = pd.read_csv(os.path.join(dataset_dir, 'tags.txt'), sep=' ', header=None, names=['id', 'label'])
     df['id'] = df['id'].astype(int)
     df.sort_values(by=['id'], inplace=True)
     return df
 
 
-def load_data(ava_dataset_dir=None, sample_size=None):
+def load_data(dataset_dir=None, sample_size=None):
     """
     Returns the pandas DataFrame for Training Data, Test Data and Validation Data.
-    :param ava_dataset_dir: AVA Dataset directory.
+    :param dataset_dir: AVA Dataset directory.
     :param sample_size: No. of Samples to pick from DataFrame.
     :return: Train DataFrame, Validation DataFrame, Test DataFrame
     """
-    if ava_dataset_dir is None:
-        ava_dataset_dir = AVA_DATASET_DIR
+    dataset_dir = _get_dataset_dir(dataset_dir)
 
     count_columns = get_rating_columns()  # get the columns representing ratings
-    ava_csv_df = get_ava_csv_df(ava_dataset_dir)  # Get the AVA csv dataframe
+    ava_csv_df = get_ava_csv_df(dataset_dir)  # Get the AVA csv dataframe
 
     if sample_size is None:
         sample_size = len(ava_csv_df)

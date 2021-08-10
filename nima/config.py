@@ -10,7 +10,7 @@ MODEL_BUILD_TYPE = ['aesthetic', 'technical']
 
 DATASET_DIR = os.path.join(PROJECT_ROOT_DIR, 'data')
 # AVA dataset
-AVA_DATASET_DIR = os.path.join(DATASET_DIR, 'AVA')
+AVA_DATASET_DIR = os.path.join(DATASET_DIR, 'ava')
 AVA_DATASET_IMAGES_DIR = os.path.join(AVA_DATASET_DIR, 'images')
 AVA_FILE = os.path.join(AVA_DATASET_DIR, 'AVA.txt')
 AVA_CSV = os.path.join(AVA_DATASET_DIR, 'AVA.csv')

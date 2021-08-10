@@ -23,10 +23,8 @@ from bs4 import BeautifulSoup
 from nima.config import AVA_DATASET_DIR, print_msg
 
 URL_PREFIX = 'http://www.dpchallenge.com/image.php?IMAGE_ID='
-# PROJECT_ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 DATASET_DIR = AVA_DATASET_DIR
 DOWNLOAD_DIR = os.path.join(AVA_DATASET_DIR, 'images')
-# AVA_FILE = os.path.join(AVA_DATASET_DIR, 'AVA.txt')
 img_count = 0
 
 
