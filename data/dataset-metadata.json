@@ -1,0 +1,10 @@
+{
+  "title": "nima_dataset",
+  "subtitle": "Dataset for NIMA implementation.",
+  "id": "maindolaamit/nima-dataset",
+  "licenses": [
+    {
+      "name": "CC0-1.0"
+    }
+  ]
+}

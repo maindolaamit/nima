@@ -106,11 +106,6 @@ class NIMA:
         # Set the model properties
         self.base_model = base_cnn(input_shape=self.input_shape, weights=self.base_cnn_weight,
                                    pooling='avg', include_top=False)
-        # Freeze/UnFreeze base model layers if true
-        if self.freeze_base_model:
-            self.freeze_all_layers()
-        else:
-            self.train_all_layers()
 
         # add dropout and dense layer
         x = Dropout(.2)(self.base_model.output)
@@ -146,9 +141,11 @@ class NIMA:
 
     def _liveloss_before_subplot(self, fig: plt.Figure, axs: np.ndarray, num_lg: int):
         """Add figure title"""
-        fig.suptitle(f'{self.model_class_name}', fontsize=10, weight='bold', color='green')
+        fig.suptitle(f'{self.model_type.capitalize()} - {self.model_class_name}', fontsize=10,
+                     weight='bold', color='green')
         fig.set_figheight(6)
         fig.set_figwidth(10)
+
 
     def get_naming_prefix(self):
         weight_filename = f'{self.model_class_name}_{self.model_type}' \

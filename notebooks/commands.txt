@@ -9,4 +9,6 @@ python.exe "C:/Users/amaindola/Google Drive/Colab Notebooks/img-quality-assesmen
 
 
 Dataset url
-https://expediacorp-my.sharepoint.com/:f:/g/personal/amaindola_sea_corp_expecn_com/EjSlgz7f335InGGzSmgyB0kBbCwJAdlVNQW79jqn8jB1Fg?e=2NKtmR
+https://drive.google.com/drive/folders/1vX4K1NNYqS7caeH7rKTyy5YsIEEWf46A?usp=sharing
+
+wget -r --no-parent https://expediacorp-my.sharepoint.com/:f:/g/personal/amaindola_sea_corp_expecn_com/Enxypao02GJHqAbXq1RZjy0BZusiufozjk14TKCq0VofGA?e=6SY6Bx

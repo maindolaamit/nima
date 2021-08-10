@@ -10,6 +10,13 @@ from nima.config import INPUT_SHAPE
 
 
 def load_image(image_path, target_size=INPUT_SHAPE):
+    """
+    Load the image from disk to Pillow format and then convert to numpy array.
+    return numpy array against image after rescaling and normalization.
+    :param image_path: image file path
+    :param target_size: image rescale size
+    :return: Numpy array
+    """
     image = load_img(image_path, target_size=(target_size[0], target_size[1]))  # load the image in pillow format
     image = img_to_array(image)  # convert to numpy array
     # image = image.reshape((1, image.shape[0], image.shape[1], image.shape[2]))

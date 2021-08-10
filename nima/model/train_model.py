@@ -188,8 +188,8 @@ def train_technical_model(p_model_name, p_dataset_dir, p_sample_size, p_weight_p
 
     # Form the NIMA Aesthetic Model
     nima_tech_cnn = NIMA(base_model_name=p_model_name, weights=p_weight_path, model_type='technical',
-                              loss=mean_squared_error, input_shape=INPUT_SHAPE, metrics=p_metrics,
-                              freeze_base_model=p_freeze_base)
+                         loss=mean_squared_error, input_shape=INPUT_SHAPE, metrics=p_metrics,
+                         freeze_base_model=p_freeze_base)
 
     # Build the model for training
     nima_tech_cnn.build()
@@ -209,7 +209,7 @@ def train_technical_model(p_model_name, p_dataset_dir, p_sample_size, p_weight_p
     print_msg("Training Technical Model...")
     print_msg(f'Training Batch size {train_batch_size}, metric : {p_metrics}', 1)
     train_result_df = nima_tech_cnn.train_model(train_generator, valid_generator, epochs=p_epochs,
-                                                     verbose=p_verbose)
+                                                verbose=p_verbose)
 
     # # start training all layers
     # nima_technical_cnn.train_all_layers()
@@ -237,7 +237,7 @@ def train_technical_model(p_model_name, p_dataset_dir, p_sample_size, p_weight_p
     print_msg(f'Testing Batch size:{test_batch_size}', 1)
     predictions = nima_tech_cnn_test.model.predict(test_generator, use_multiprocessing=True, verbose=p_verbose)
     df_test['rating_predict'] = predictions
-    df_test.to_csv()
+    df_test.to_csv(predict_df_filename, index=False)
     print(df_test.iloc[0])
     return train_result_df, df_test,
 
@@ -251,17 +251,8 @@ if __name__ == '__main__':
                         help='Model Name to train, view models.json to know available models for training.')
     parser.add_argument('-s', '--sample-size', type=int, default=None, required=False,
                         help='Sample size, None for full size.')
-    parser.add_argument('-m', '--metrics', type=list, default=['accuracy'], required=False,
-                        help="Evaluation Metric if any, default is accuracy.")
     parser.add_argument('-t', '--model-type', type=str, default=MODEL_BUILD_TYPE[0], required=False,
                         help="Model type to train aesthetic/technical/both.")
-    parser.add_argument('-wa', '--aes-weights-path', type=str, default=None, required=False,
-                        help="Aesthetic Weights file path, if any.")
-    parser.add_argument('-wt', '--tech-weights-path', type=str, default=None, required=False,
-                        help="Technical Weights file path, if any.")
-    parser.add_argument('-f', '--freeze-base', type=str,
-                        default='true', required=False,
-                        help="Allow Base CNN Model's layers to be trained.")
     parser.add_argument('-b', '--batch-size', type=int,
                         default=64, required=False, help='Batch size.')
     parser.add_argument('-e', '--epochs', type=int, default=15, required=False,
