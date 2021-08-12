@@ -5,15 +5,7 @@ import tensorflow.keras as keras
 
 from nima.config import INPUT_SHAPE, CROP_SHAPE, print_msg
 from nima.utils import image_utils
-
-
-def normalize_label(label):
-    """
-    Normalize the given input list of labels
-    :return: numpy array
-    """
-    x = np.array(label)
-    return x / x.sum()
+from nima.utils.preprocess import normalize_ratings
 
 
 class TrainDataGenerator(keras.utils.Sequence):
@@ -75,7 +67,7 @@ class TrainDataGenerator(keras.utils.Sequence):
                 if np.random.random() > 0.5:
                     img = np.fliplr(img)
                 x[i] = img
-            y[i] = normalize_label(row[self.y_col])
+            y[i] = normalize_ratings(row[self.y_col])
         # apply base network's preprocessing on the 4D numpy array
         x = self.model_preprocess_input(x)
         # return the image and labels
@@ -140,7 +132,7 @@ class TestDataGenerator(keras.utils.Sequence):
             if img is not None:
                 x[i] = img
             if self.y_col is not None:
-                y[i] = normalize_label(row[self.y_col])
+                y[i] = normalize_ratings(row[self.y_col])
         # apply base network's preprocessing on the 4D numpy array
         x = self.model_preprocess_input(x)
         # return the image and labels

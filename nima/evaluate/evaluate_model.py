@@ -27,16 +27,14 @@ def test_aesthetic_model(p_model_name, p_dataset_dir, p_sample_size, p_weight_pa
     # form the model
     print_msg("Testing Model...")
     nima_aes_cnn = NIMA(base_model_name=p_model_name, model_weights=p_weight_path, model_type='aesthetic',
-                        loss=earth_movers_distance, input_shape=INPUT_SHAPE, metrics=p_metrics,
-                        freeze_base_model=p_freeze_base_model, )
+                        loss=earth_movers_distance, input_shape=INPUT_SHAPE, metrics=p_metrics,)
     nima_aes_cnn.build()
     nima_aes_cnn.compile()
     # Get the generator
     test_generator = TestDataGenerator(df_test, ava_images_dir, x_col=x_col, y_col=None,
                                        img_format=img_format, num_classes=10,
                                        preprocess_input=nima_aes_cnn.get_preprocess_function(),
-                                       batch_size=test_batch_size, input_size=INPUT_SHAPE,
-                                       )
+                                       batch_size=test_batch_size, input_size=INPUT_SHAPE,)
 
     train_weights_file = nima_aes_cnn.get_naming_prefix() + '.hdf5'
     assert os.path.isfile(train_weights_file), 'Weights does not exist, please train the model first'
@@ -57,6 +55,7 @@ def eval_technical_model(p_model_name, p_test_df=None, p_dataset_dir=TID_DATASET
                          p_batch_size=32, p_verbose=0):
     """
     Trains an aesthetic model for the given parameters.
+    :param p_loss: Loss function for the model.
     :param p_model_name: Model for evaluation.
     :param p_dataset_dir: TID dataset path, used when test_df is not passed.
     :param p_sample_size: No. of samples to test if DataFrame not given.

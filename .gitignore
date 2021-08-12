@@ -107,6 +107,7 @@ venv.bak/
 
 # Custom
 .DS_Store
+desktop.ini
 .idea/
 .vscode/
 .kaggle/

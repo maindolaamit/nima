@@ -1,11 +1,13 @@
 import os
 from glob import glob
 
+import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
 from nima.config import print_msg
 from nima.utils.ava_downloader import AVA_DATASET_DIR
+from nima.utils.preprocess import get_std_score, get_mean_quality_score, normalize_ratings
 
 columns = [
     "index",
@@ -75,17 +77,6 @@ def make_ava_csv(dataset_dir=None):
     df_images_present.to_csv(os.path.join(dataset_dir, 'AVA.csv'), sep=',', header=True, index=False)
 
 
-def get_ava_csv_df(dataset_dir=None):
-    """
-    Returns the Pandas DataFrame from AVA.csv file
-    :param dataset_dir: AVA Dataset directory.
-    :return: Pandas DataFrame from AVA.csv
-    """
-    dataset_dir = _get_dataset_dir(dataset_dir)
-    df = pd.read_csv(os.path.join(dataset_dir, 'AVA.csv'))
-    return df
-
-
 def get_original_ava_df(dataset_dir=None):
     """
     Returns the Pandas DataFrame from original file AVA.txt
@@ -94,10 +85,12 @@ def get_original_ava_df(dataset_dir=None):
     """
     dataset_dir = _get_dataset_dir(dataset_dir)
     ava_file = os.path.join(dataset_dir, 'AVA.txt')
-    return pd.read_csv(ava_file, sep=' ', header=None, names=columns, )
+    df = pd.read_csv(ava_file, sep=' ', header=None, names=columns, )
+    df['image_id'] = df['image_id'].astype(str)
+    return df
 
 
-def __get_max_rating(df_row):
+def get_max_rating(df_row):
     """
     Get the max rating from the passed DataFrame row of original ava.txt
     :param df_row: DataFrame Row
@@ -111,13 +104,29 @@ def __get_max_rating(df_row):
 
 def get_orig_df_with_max_rating(dataset_path=None):
     df = get_original_ava_df()
-    df['rating'] = df.apply(lambda row: __get_max_rating(row), axis=1)
+    df['max_rating'] = df[get_max_rating].apply(lambda row: np.argmax(row.to_numpy()), axis=1)
     return df
 
 
-def get_csv_df_with_max_rating(dataset_dir=None):
+def get_ava_csv_score_df(dataset_dir=None):
     df = get_ava_csv_df(dataset_dir)
-    df['rating'] = df.apply(lambda row: __get_max_rating(row), axis=1)
+    ratings_column = get_rating_columns()
+    df.insert(2, 'max_rating', df[ratings_column].apply(lambda row: np.argmax(row.to_numpy()), axis=1))
+    df.insert(3, 'mean_score', df[ratings_column].apply(lambda row: get_mean_quality_score(normalize_ratings(row))
+                                                        , axis=1))
+    df.insert(4, 'std_score', df[ratings_column].apply(lambda row: get_std_score(normalize_ratings(row)), axis=1))
+    return df
+
+
+def get_ava_csv_df(dataset_dir=None):
+    """
+    Returns the Pandas DataFrame from AVA.csv file
+    :param dataset_dir: AVA Dataset directory.
+    :return: Pandas DataFrame from AVA.csv
+    """
+    dataset_dir = _get_dataset_dir(dataset_dir)
+    df = pd.read_csv(os.path.join(dataset_dir, 'AVA.csv'))
+    df['image_id'] = df['image_id'].astype(str)
     return df
 
 
@@ -144,7 +153,7 @@ def load_data(dataset_dir=None, sample_size=None):
     dataset_dir = _get_dataset_dir(dataset_dir)
 
     count_columns = get_rating_columns()  # get the columns representing ratings
-    ava_csv_df = get_ava_csv_df(dataset_dir)  # Get the AVA csv dataframe
+    ava_csv_df = get_ava_csv_score_df(dataset_dir)  # Get the AVA csv dataframe
 
     if sample_size is None:
         sample_size = len(ava_csv_df)
