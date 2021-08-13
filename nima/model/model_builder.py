@@ -11,6 +11,7 @@ from matplotlib import pyplot as plt
 from tensorflow.keras.layers import Dropout, Dense
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
+from tensorflow.python.keras.optimizer_v2.learning_rate_schedule import ExponentialDecay
 
 from nima.config import MODELS_JSON_FILE_PATH, WEIGHTS_DIR, MODEL_BUILD_TYPE, print_msg, INPUT_SHAPE, CROP_SHAPE
 from nima.model.loss import earth_movers_distance
@@ -47,7 +48,7 @@ def model_weight_name(model_name, model_type=MODEL_BUILD_TYPE[0], freeze_base_mo
 class NIMA:
     def __init__(self, base_model_name,
                  base_cnn_weight='imagenet', model_weights=None, weights_dir=WEIGHTS_DIR,
-                 base_cnn_lr=1e-4, model_lr=None, input_shape=INPUT_SHAPE, crop_size=None,
+                 base_cnn_lr=3e-7, model_lr=None, input_shape=INPUT_SHAPE, crop_size=None,
                  loss=earth_movers_distance, metrics=None, ):
         """
         Constructor method
@@ -114,6 +115,10 @@ class NIMA:
 
     def compile(self):
         """ Compile the Model """
+        # lr_schedule = ExponentialDecay(
+        #     initial_learning_rate=self.base_cnn_lr,
+        #     decay_steps=10,
+        #     decay_rate=0.95)
         self.model.compile(optimizer=Adam(self.base_cnn_lr), loss=self.loss, metrics=self.metrics)
         print_msg("Model compiled successfully.", 1)
 
@@ -129,7 +134,7 @@ class NIMA:
 
     def _liveloss_before_subplot(self, fig: plt.Figure, axs: np.ndarray, num_lg: int):
         """Add figure title"""
-        fig.suptitle(f'{self.model_type.capitalize()} - {self.model_class_name}', fontsize=10,
+        fig.suptitle(f'{self.model_type} - {self.model_class_name}', fontsize=10,
                      weight='bold', color='green')
         fig.set_figheight(6)
         fig.set_figwidth(10)
@@ -146,7 +151,7 @@ class NIMA:
 
     def get_callbacks(self, verbose):
         es = EarlyStopping(monitor='val_loss', patience=5, mode='auto', verbose=verbose)
-        lr = ReduceLROnPlateau(monitor='val_loss', patience=2, verbose=verbose)
+        lr = ReduceLROnPlateau(monitor='val_loss', factor=0.95, patience=2, verbose=verbose)
         model_save_name = self.get_naming_prefix()
         # Live loss
         liveloss_filename = os.path.join(self.weights_dir, model_save_name + ".png")

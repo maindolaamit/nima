@@ -106,9 +106,9 @@ def train_model_cv(model_name, model_type, images_dir,
 
 
 def train_aesthetic_model(p_model_name, p_dataset_dir, p_sample_size, p_weight_path,
-                          p_freeze_base_model, p_batch_size, p_metrics, p_epochs, p_verbose):
+                          p_batch_size, p_metrics, p_epochs, p_verbose):
     from nima.utils.ava_dataset_utils import load_data, get_rating_columns
-    ava_dataset_dir = os.path.join(p_dataset_dir, 'AVA')
+    ava_dataset_dir = p_dataset_dir #os.path.join(p_dataset_dir, 'AVA')
     ava_images_dir = os.path.join(ava_dataset_dir, 'images')
     img_format = 'jpg'
     print_msg(f'Images directory {ava_images_dir}')
@@ -121,11 +121,11 @@ def train_aesthetic_model(p_model_name, p_dataset_dir, p_sample_size, p_weight_p
     test_batch_size = min(p_batch_size, 32, len(df_test))
 
     # Form the NIMA Aesthetic Model
-    nima_aesthetic_cnn = NIMA(base_model_name=p_model_name, model_weights=p_weight_path, model_type='aesthetic',
+    nima_aesthetic_cnn = NIMA(base_model_name=p_model_name, model_weights=p_weight_path,
                               loss=earth_movers_distance, input_shape=INPUT_SHAPE, metrics=p_metrics)
 
     # Build the model for training
-    nima_aesthetic_cnn.build(p_freeze_base_model)
+    nima_aesthetic_cnn.build()
     nima_aesthetic_cnn.compile()
     nima_aesthetic_cnn.model.summary()
 
@@ -261,7 +261,7 @@ if __name__ == '__main__':
 
     # model to choose, default to mobilenet
     arg_model_name = args.__dict__['model_name']
-    arg_model_type = args.__dict__['model_type']
+    arg_model_type = (args.__dict__['model_type']).lower()
     arg_aes_weight_path = args.__dict__['aes_weights_path']
     if arg_aes_weight_path is not None:
         assert os.path.isfile(arg_aes_weight_path), 'Invalid Aesthetic weights, does not exists.'
@@ -284,7 +284,7 @@ if __name__ == '__main__':
                                                                                   p_dataset_dir=arg_dataset_dir,
                                                                                   p_sample_size=arg_sample_size,
                                                                                   p_weight_path=arg_aes_weight_path,
-                                                                                  p_freeze_base_model=arg_freeze_base,
+                                                                                  # p_freeze_base_model=arg_freeze_base,
                                                                                   p_batch_size=arg_batch_size,
                                                                                   p_metrics=['accuracy'],
                                                                                   p_epochs=arg_epochs,

@@ -125,7 +125,7 @@ def get_ava_csv_df(dataset_dir=None):
     :return: Pandas DataFrame from AVA.csv
     """
     dataset_dir = _get_dataset_dir(dataset_dir)
-    df = pd.read_csv(os.path.join(dataset_dir, 'AVA.csv'))
+    df = pd.read_csv(os.path.join(dataset_dir, 'ava_with_scores.csv'))
     df['image_id'] = df['image_id'].astype(str)
     return df
 

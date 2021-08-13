@@ -1,12 +1,13 @@
 import os
 import warnings
 
+import PIL
 from PIL import Image, ImageOps
 from numpy.random import randint
 from tensorflow.keras.preprocessing.image import img_to_array
 from tensorflow.keras.preprocessing.image import load_img
 
-from nima.config import INPUT_SHAPE
+from nima.config import INPUT_SHAPE, AVA_DATASET_IMAGES_DIR
 
 
 def load_image(image_path, target_size=INPUT_SHAPE):
@@ -54,9 +55,37 @@ def filter_valid_images(df, img_directory, x_col, img_format):
         absolute paths to image files
     """
     filepaths = df[x_col].map(lambda fname: os.path.join(img_directory, f'{fname}.{img_format}'))
-    mask = filepaths.apply(lambda x: os.path.isfile(x))
+    mask = filepaths.apply(lambda x: os.path.isfile(x) and is_valid_image(x))
     n_invalid = (~mask).sum()
     if n_invalid:
         warnings.warn(f'Found {n_invalid} invalid image filename(s) in x_col="{x_col}".'
                       f' These filename(s) will be ignored.')
     return df[mask]
+
+
+def is_valid_image(filename):
+    try:
+        # image = tf.read_file(filename)
+        # image = tf.image.decode_jpeg(image, channels=3)
+        image = PIL.Image.open(filename)
+        image.verify()
+        if image.width < 224 or image.height < 224:
+            return False
+        return True
+    except Exception as e:
+        return False
+
+
+def clean_dataset(img_directory):
+    from glob import glob
+
+    # files = os.listdir(img_directory)
+    files = glob(os.path.join(img_directory, '*.jpg'))
+
+    invalid_files = [file for file in files if not is_valid_image(file)]
+    print(f"Total number of invalid files : {len(invalid_files)}")
+    print(invalid_files[:20])
+
+
+if __name__ == '__main__':
+    clean_dataset(AVA_DATASET_IMAGES_DIR)
