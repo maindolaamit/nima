@@ -51,7 +51,6 @@ def get_mean_quality_score(np_arr):
     Get the mean image quality score from the given user ratings array
     :return: numpy array
     """
-    # normalized = np_arr / np_arr.sum()
     return round(np.sum(_ava_rating_weights * np_arr), 3)
 
 

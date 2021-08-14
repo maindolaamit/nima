@@ -1,5 +1,6 @@
 import os
 
+import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
@@ -9,6 +10,8 @@ columns = [
     "rating",
     "image_id",
 ]
+
+TID_MAX_MEAN_SCORE = 9
 
 
 def _get_dataset_dir(dataset_dir=None):
@@ -51,25 +54,33 @@ def get_mos_csv_df(dataset_dir=None):
     return df
 
 
-def load_tid_data(dataset_dir=None, sample_size=None, require_valid_data=True, ):
+def load_tid_data(dataset_dir=None, sample_size=None, require_validation_data=True, ):
     """
     Get the Training, Validation and Testing data as Dataframes.
-    :param require_valid_data: If yes validation data will also be given
+    :param require_validation_data: If yes validation data will also be given
     :param dataset_dir: TID Dataset directory.
     :param sample_size: Number of samples to use
     :return:
     """
     dataset_dir = _get_dataset_dir(dataset_dir)
 
-    tid_df = get_mos_df(dataset_dir)
+    tid_df = get_mos_csv_df(dataset_dir)
+    tid_df['mean'] = tid_df['mean'] / TID_MAX_MEAN_SCORE  # Normalize mean
+
+    num_brackets = 3
     if sample_size is None or sample_size > len(tid_df):
         sample_size = len(tid_df)
-    print_msg(f'Number of samples picked {sample_size}', 1)
-    df = tid_df.sample(n=sample_size).reset_index(drop=True)
+        num_brackets = 1
 
-    df_train, df_test = train_test_split(df, test_size=0.10, shuffle=True, random_state=1024)
-    if require_valid_data:
-        df_train, df_valid = train_test_split(df_train, test_size=0.2, shuffle=True, random_state=1024)
-        return df_train.reset_index(drop=True), df_valid.reset_index(drop=True), df_test.reset_index(drop=True)
-    else:
-        return df_train.reset_index(drop=True), df_test.reset_index(drop=True)
+    # Add label for stratification
+    tid_df['_label'] = np.floor(tid_df['mean'] / num_brackets)
+    print_msg(f'Number of samples picked {sample_size}', 1)
+    tid_df = tid_df.sample(n=sample_size).reset_index(drop=True)
+    df_train, df_test = train_test_split(tid_df, test_size=0.10, shuffle=True, random_state=1024,
+                                         stratify=tid_df['_label'])
+    df_train = df_train.drop(labels='_label', axis=1).reset_index(drop=True)
+    df_test = df_test.drop('_label', axis=1).reset_index(drop=True)
+
+    # if require_validation_data:
+    df_train, df_valid = train_test_split(df_train, test_size=0.2, shuffle=True, random_state=1024)
+    return df_train.reset_index(drop=True), df_valid.reset_index(drop=True), df_test

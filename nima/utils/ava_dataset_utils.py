@@ -66,13 +66,15 @@ def make_ava_csv(dataset_dir=None):
     dataset_dir = _get_dataset_dir(dataset_dir)
 
     # Fetch the list of images and Merge the two dataframe on id
-    print_msg('Getting present images list')
     images_dir = os.path.join(dataset_dir, 'images')
+    print_msg(f'Getting present images list from {images_dir}')
     df_images = _get_present_image_namess_df(images_dir)
     df_orig = get_original_ava_df(dataset_dir)
-    print_msg('creating dataframe of images name')
-    images_present_list = df_images['image_id'].apply(lambda x: x.split('.')[0]).astype(int).to_list()
+    print_msg(f'creating dataframe for image count {len(df_images)}')
+    images_present_list = df_images['image_id'].apply(lambda x: x.split('.')[0]).astype(str).to_list()
+    print(images_present_list[:5])
     df_images_present = df_orig[df_orig['image_id'].isin(images_present_list)]
+    print_msg(f'Images present {len(df_images_present)}')
     # Save the dataframe to csv
     df_images_present.to_csv(os.path.join(dataset_dir, 'AVA.csv'), sep=',', header=True, index=False)
 
@@ -108,13 +110,21 @@ def get_orig_df_with_max_rating(dataset_path=None):
     return df
 
 
-def get_ava_csv_score_df(dataset_dir=None):
+def make_ava_csv_score(dataset_dir=None):
     df = get_ava_csv_df(dataset_dir)
     ratings_column = get_rating_columns()
-    df.insert(2, 'max_rating', df[ratings_column].apply(lambda row: np.argmax(row.to_numpy()), axis=1))
+    df.insert(2, 'max_rating', df[ratings_column].apply(lambda row: np.argmax(row.to_numpy()) + 1, axis=1))
     df.insert(3, 'mean_score', df[ratings_column].apply(lambda row: get_mean_quality_score(normalize_ratings(row))
                                                         , axis=1))
     df.insert(4, 'std_score', df[ratings_column].apply(lambda row: get_std_score(normalize_ratings(row)), axis=1))
+
+    df.to_csv(os.path.join(dataset_dir, 'ava_with_score.csv'), sep=',', header=True, index=False)
+
+
+def get_ava_csv_score_df(dataset_dir=None):
+    dataset_dir = _get_dataset_dir(dataset_dir)
+    df = pd.read_csv(os.path.join(dataset_dir, 'ava_with_scores.csv'))
+    df['image_id'] = df['image_id'].astype(str)
     return df
 
 
@@ -125,7 +135,7 @@ def get_ava_csv_df(dataset_dir=None):
     :return: Pandas DataFrame from AVA.csv
     """
     dataset_dir = _get_dataset_dir(dataset_dir)
-    df = pd.read_csv(os.path.join(dataset_dir, 'ava_with_scores.csv'))
+    df = pd.read_csv(os.path.join(dataset_dir, 'AVA.csv'))
     df['image_id'] = df['image_id'].astype(str)
     return df
 
@@ -155,20 +165,29 @@ def load_data(dataset_dir=None, sample_size=None):
     count_columns = get_rating_columns()  # get the columns representing ratings
     ava_csv_df = get_ava_csv_score_df(dataset_dir)  # Get the AVA csv dataframe
 
-    if sample_size is None:
-        sample_size = len(ava_csv_df)
-
-    keep_columns = ['image_id'] + count_columns
+    mean_range = 3
     if sample_size is None or sample_size > len(ava_csv_df):
         sample_size = len(ava_csv_df)
+        mean_range = 1
+    elif sample_size < 500:
+        mean_range = 2
+
     print_msg(f'Number of samples picked {sample_size}', 1)
+    # Add label for stratification
+    keep_columns = ['image_id', 'max_rating', 'mean_score'] + count_columns + ['_label']
+    ava_csv_df['_label'] = np.floor(ava_csv_df['mean_score'] / mean_range)
     df = ava_csv_df[keep_columns].sample(n=sample_size).reset_index(drop=True)
 
-    df_train, df_test = train_test_split(df, test_size=0.05, shuffle=True, random_state=1024)
-    df_train, df_valid = train_test_split(df_train, test_size=0.2, shuffle=True, random_state=1024)
+    df_train, df_test = train_test_split(df, test_size=0.05, shuffle=True,
+                                         random_state=1024, stratify=df['_label'])
+    df_train, df_valid = train_test_split(df_train, test_size=0.2, shuffle=True,
+                                          random_state=1024, stratify=df_train['_label'])
+    df_train = df_train.drop(labels='_label', axis=1).reset_index(drop=True)
+    df_test = df_test.drop('_label', axis=1).reset_index(drop=True)
+    df_valid = df_valid.drop('_label', axis=1).reset_index(drop=True)
 
-    return df_train.reset_index(drop=True), df_valid.reset_index(drop=True), df_test.reset_index(drop=True)
+    return df_train, df_valid, df_test
 
 
 if __name__ == '__main__':
-    make_ava_csv('E:\AVA_dataset')
+    make_ava_csv(AVA_DATASET_DIR)

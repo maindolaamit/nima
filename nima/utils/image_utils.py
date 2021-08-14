@@ -69,8 +69,8 @@ def is_valid_image(filename):
         # image = tf.image.decode_jpeg(image, channels=3)
         image = PIL.Image.open(filename)
         image.verify()
-        if image.width < 224 or image.height < 224:
-            return False
+        # if image.width < 224 or image.height < 224:
+        #     return False
         return True
     except Exception as e:
         return False
@@ -85,6 +85,8 @@ def clean_dataset(img_directory):
     invalid_files = [file for file in files if not is_valid_image(file)]
     print(f"Total number of invalid files : {len(invalid_files)}")
     print(invalid_files[:20])
+    for file in invalid_files:
+        os.remove(file)
 
 
 if __name__ == '__main__':
