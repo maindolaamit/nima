@@ -11,7 +11,7 @@ from nima.utils.preprocess import normalize_ratings
 class TrainDataGenerator(keras.utils.Sequence):
     def __init__(self, df, img_directory, x_col, y_col, preprocess_input, img_format='jpg',
                  num_classes=10, batch_size=32, input_size=INPUT_SHAPE, crop_size=CROP_SHAPE,
-                 shuffle=False):
+                 shuffle=False, normalize_pixels=False):
         """
         Takes the dataframe and the path to the image directory and generates the batches of augmented data.
         :param df: Pandas dataframe containing filepaths relative to img_directory
@@ -24,6 +24,7 @@ class TrainDataGenerator(keras.utils.Sequence):
         :param crop_size: dimension that image gets randomly cropped to
         :param shuffle: weather to shuffle the data
         """
+        self.normalize_pixels = normalize_pixels
         self.img_directory = img_directory
         self.x_col, self.y_col = x_col, y_col
         self.batch_size = batch_size
@@ -59,7 +60,7 @@ class TrainDataGenerator(keras.utils.Sequence):
         for i, row in batch_samples.iterrows():
             # Load the image and resize
             img_path = os.path.join(self.img_directory, f'{row[self.x_col]}.{self.img_format}')
-            img = image_utils.load_image(img_path, self.input_size)
+            img = image_utils.load_image(img_path, self.input_size, self.normalize_pixels)
             if img is not None:
                 # Modify image only for training purpose
                 img = image_utils.random_crop_image(img, self.crop_size)  # crop the image
@@ -83,7 +84,7 @@ class TrainDataGenerator(keras.utils.Sequence):
 
 class TestDataGenerator(keras.utils.Sequence):
     def __init__(self, df, img_directory, x_col, y_col, preprocess_input, img_format='jpg', num_classes=10,
-                 batch_size=32, input_size=INPUT_SHAPE):
+                 batch_size=32, input_size=INPUT_SHAPE, normalize_pixels=False):
         """
         Takes the dataframe and the path to the image directory and generates the batches of augmented data.
         :param df: Pandas dataframe containing filepaths relative to img_directory
@@ -94,6 +95,7 @@ class TestDataGenerator(keras.utils.Sequence):
         :param preprocess_input: Base CNN model's preprocessing input function
         :param input_size: dimension that image size get resized to when loaded
         """
+        self.normalize_pixels = normalize_pixels
         self.input_size = input_size
         self.img_directory = img_directory
         self.x_col, self.y_col = x_col, y_col
@@ -128,7 +130,7 @@ class TestDataGenerator(keras.utils.Sequence):
         for i, row in batch_samples.iterrows():
             # Load the image and resize
             img_path = os.path.join(self.img_directory, f'{row[self.x_col]}.{self.img_format}')
-            img = image_utils.load_image(img_path, self.input_size)
+            img = image_utils.load_image(img_path, self.input_size, self.normalize_pixels)
             if img is not None:
                 x[i] = img
             if self.y_col is not None:

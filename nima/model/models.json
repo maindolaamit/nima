@@ -11,9 +11,13 @@
     "model_package": "tensorflow.keras.applications.inception_v3",
     "model_class": "InceptionV3"
   },
-  "resnet": {
+  "inc_resnet": {
     "model_package": "tensorflow.keras.applications.inception_resnet_v2",
     "model_class": "InceptionResNetV2"
+  },
+  "resnet": {
+    "model_package": "tensorflow.keras.applications.resnet_v2",
+    "model_class": "ResNet50V2"
   },
   "mobilenet": {
     "model_package": "tensorflow.keras.applications.mobilenet_v2",

@@ -1,16 +1,17 @@
 import os
 import warnings
 
-import PIL
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, ImageFile
 from numpy.random import randint
 from tensorflow.keras.preprocessing.image import img_to_array
 from tensorflow.keras.preprocessing.image import load_img
 
 from nima.config import INPUT_SHAPE, AVA_DATASET_IMAGES_DIR
 
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
-def load_image(image_path, target_size=INPUT_SHAPE):
+
+def load_image(image_path, target_size=INPUT_SHAPE, normalize_pixels=False):
     """
     Load the image from disk to Pillow format and then convert to numpy array.
     return numpy array against image after rescaling and normalization.
@@ -21,7 +22,8 @@ def load_image(image_path, target_size=INPUT_SHAPE):
     image = load_img(image_path, target_size=(target_size[0], target_size[1]))  # load the image in pillow format
     image = img_to_array(image)  # convert to numpy array
     # image = image.reshape((1, image.shape[0], image.shape[1], image.shape[2]))
-    image = image / 255.0  # Normalize the image pixel value
+    if normalize_pixels:
+        image = image / 255.0  # Normalize the image pixel value
     return image
 
 
@@ -65,15 +67,14 @@ def filter_valid_images(df, img_directory, x_col, img_format):
 
 def is_valid_image(filename):
     try:
-        # image = tf.read_file(filename)
-        # image = tf.image.decode_jpeg(image, channels=3)
-        image = PIL.Image.open(filename)
+        image = Image.open(filename)
         image.verify()
-        # if image.width < 224 or image.height < 224:
-        #     return False
+
+        image = load_img(filename, target_size=(INPUT_SHAPE[0], INPUT_SHAPE[1]))  # load the image in pillow format
+        image = img_to_array(image)  # convert to numpy array
         return True
     except Exception as e:
-        return False
+        return True
 
 
 def clean_dataset(img_directory):
@@ -81,6 +82,8 @@ def clean_dataset(img_directory):
 
     # files = os.listdir(img_directory)
     files = glob(os.path.join(img_directory, '*.jpg'))
+    files += glob(os.path.join(img_directory, '*.bmp'))
+    files += glob(os.path.join(img_directory, '*.BMP'))
 
     invalid_files = [file for file in files if not is_valid_image(file)]
     print(f"Total number of invalid files : {len(invalid_files)}")

@@ -3,7 +3,7 @@ from pathlib import Path
 
 PROJECT_ROOT_DIR = Path(__file__).resolve().parent.parent
 WEIGHTS_DIR = os.path.join(PROJECT_ROOT_DIR, 'nima', 'weights')
-RESULTS_DIR = os.path.join(PROJECT_ROOT_DIR, 'nima', 'results')
+RESULTS_DIR = os.path.join(PROJECT_ROOT_DIR, 'results')
 MODELS_JSON_FILE_PATH = os.path.join(PROJECT_ROOT_DIR, 'nima', 'model', 'models.json')
 INPUT_SHAPE = (256, 256, 3)
 CROP_SHAPE = (224, 224, 3)

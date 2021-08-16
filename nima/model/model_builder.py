@@ -30,10 +30,15 @@ def get_models_dict():
     return models
 
 
-def get_naming_prefix(model_type, model_class_name, prefix):
+def get_naming_prefix(model_type, model_class_name, prefix=None, freeze=False):
     weight_filename = f'{model_class_name}_{model_type}'
     if prefix is not None:
         weight_filename = weight_filename + '_' + prefix
+    if freeze:
+        weight_filename = weight_filename + '_freezed'
+    else:
+        weight_filename = weight_filename + '_all_trained'
+
     return weight_filename
 
 
@@ -65,10 +70,10 @@ def _get_base_module(model_name):
 
 
 def get_callbacks(weights_dir, model_type, model_class_name, prefix=None, liveloss_before_subplot=None,
-                  verbose=0, lr_patience=5, es_patience=5, lr_factor=0.95):
+                  freeze=False, verbose=0, lr_patience=5, es_patience=5, lr_factor=0.95):
     es = EarlyStopping(monitor='val_loss', patience=lr_patience, mode='auto', verbose=verbose)
     lr = ReduceLROnPlateau(monitor='val_loss', factor=lr_factor, patience=es_patience, verbose=verbose)
-    model_save_name = get_naming_prefix(model_type, model_class_name, prefix=prefix)
+    model_save_name = get_naming_prefix(model_type, model_class_name, prefix=prefix, freeze=freeze)
     # Live loss
     liveloss_filename = os.path.join(weights_dir, model_save_name + ".png")
     print_msg(f'Figure path : {liveloss_filename}', 1)
@@ -95,12 +100,13 @@ def get_callbacks(weights_dir, model_type, model_class_name, prefix=None, livelo
 class NIMA:
     def __init__(self, base_model_name,
                  base_cnn_weight='imagenet', weights_dir=WEIGHTS_DIR,
-                 model_lr=3e-7, input_shape=INPUT_SHAPE, crop_size=None, ):
+                 model_lr=3e-7, input_shape=INPUT_SHAPE, crop_size=CROP_SHAPE, tpu_strategy=None):
         """
         Constructor method
         :rtype: NIMA class object - A deep Learning CNN Model
         :param base_model_name: Base model name
         """
+        self.tpu_strategy = tpu_strategy
         self.base_module = None
         self.model_name = base_model_name
         self.model_type = MODEL_BUILD_TYPE[0]
@@ -129,26 +135,38 @@ class NIMA:
         for layer in self.base_model.layers:
             layer.trainable = True
 
-    def build(self):
-        """
-        Build the CNN model for Neural Image Assessment
-        """
+    def _create_model(self, dropout):
         # Load pre trained model
         base_cnn = getattr(self.base_module, self.model_class_name)
         # Set the model properties
-        self.base_model = base_cnn(input_shape=self.input_shape, weights=self.base_cnn_weight,
-                                   pooling='avg', include_top=False)
-
+        base_model = base_cnn(input_shape=self.input_shape, weights=self.base_cnn_weight,
+                              pooling='avg', include_top=False)
         # add dropout and dense layer
-        x = Dropout(.75)(self.base_model.output)
+        x = Dropout(dropout)(base_model.output)
         x = Dense(10, activation='softmax')(x)
         # Assign the class model
-        self.model = Model(self.base_model.input, x)
+        model = Model(base_model.input, x)
+        return base_model, model
+
+    def build(self, dropout=0.75):
+        """
+        Build the CNN model for Neural Image Assessment
+        """
+        if self.tpu_strategy is not None:
+            with self.tpu_strategy.scope():
+                self.base_model, self.model = self._create_model(dropout)
+        else:
+            self.base_model, self.model = self._create_model(dropout)
 
     def compile(self):
         """ Compile the Model """
-        self.model.compile(optimizer=Adam(self.model_lr), loss=self.loss, metrics=self.metrics)
-        print_msg("Model compiled successfully.", 1)
+        if self.tpu_strategy is not None:
+            with self.tpu_strategy.scope():
+                self.model.compile(optimizer=Adam(self.model_lr), loss=self.loss, metrics=self.metrics)
+                print_msg("Model compiled successfully with TPU scope .", 1)
+        else:
+            self.model.compile(optimizer=Adam(self.model_lr), loss=self.loss, metrics=self.metrics)
+            print_msg("Model compiled successfully.", 1)
 
     def get_preprocess_function(self):
         """ Return the model's preprocess_input """
@@ -162,33 +180,39 @@ class NIMA:
         """Add figure title"""
         fig.suptitle(f'{self.model_type} - {self.model_class_name}', fontsize=10,
                      weight='bold', color='green')
-        fig.set_figheight(6)
-        fig.set_figwidth(10)
+        fig.set_figheight(16)
+        fig.set_figwidth(12)
 
     def train_model(self, train_generator, validation_generator,
+                    lr_patience=5, es_patience=5, lr_factor=0.95,
                     prefix=None, epochs=32, verbose=0):
         """
         Train the final model for given parameters.
-        :param prefix:
-        :param train_generator:
-        :param validation_generator:
-        :param epochs:
-        :param verbose:
+        :param train_generator: Training Data Generator
+        :param validation_generator: Validation Data Generator
+        :param epochs: Epochs to train
+        :param verbose: Verbose mode
+        :param lr_factor: ReduceLROnPlateau factor
+        :param es_patience: Patience for EarlyStopping
+        :param lr_patience: Patience for ReduceLROnPlateau
+        :param prefix: prefix string if any
         """
         callbacks = get_callbacks(self.weights_dir, self.model_type, self.model_class_name,
-                                  prefix=prefix, verbose=verbose)
+                                  prefix=prefix, verbose=verbose,
+                                  lr_patience=lr_patience, es_patience=es_patience, lr_factor=lr_factor,
+                                  liveloss_before_subplot=None)
         # start training
         start_time = time.perf_counter()
         history = self.model.fit(train_generator, validation_data=validation_generator,
                                  epochs=epochs, callbacks=callbacks,
-                                 verbose=verbose, use_multiprocessing=True)
+                                 verbose=verbose, )
         end_time = time.perf_counter()
         print_msg(f'Training Time (HH:MM:SS) : {time.strftime("%H:%M:%S", time.gmtime(end_time - start_time))}', 1)
 
         result_df = pd.DataFrame(history.history)
         return result_df
 
-    def evaluate_model(self, df_test, test_generator, prefix=None):
+    def evaluate_model(self, df_test, test_generator, prefix=None, results_dir=RESULTS_DIR):
         # evaluate the model
         eval_result = self.model.evaluate(test_generator)
         print_msg(f"loss({self.loss}) : {eval_result}", 1)
@@ -206,8 +230,8 @@ class NIMA:
 
         predict_df_filename = get_naming_prefix(self.model_type,
                                                 self.model_class_name
-                                                , prefix=prefix) + f'_{eval_result:.3f}_pred.csv'
-        predict_file = os.path.join(RESULTS_DIR, predict_df_filename)
+                                                , prefix=prefix) + f'_pred.csv'
+        predict_file = os.path.join(results_dir, predict_df_filename)
         print_msg(f'saving predictions to {predict_file}', 1)
         df_test.to_csv(predict_file, index=False)
         return eval_result, df_test
@@ -230,15 +254,15 @@ class TechnicalModel:
         self.loss = 'mean_squared_error'
         self.metrics = ['mean_absolute_error', 'mean_squared_error']
         self.model_class_name, self.model_name, self.base_module = _get_base_module(self.model_name)
-        self.freeze_base_cnn = True
+        self.freeze_base_cnn = False
 
-    def build(self):
+    def build(self, dropout=0.2):
         base_cnn = getattr(self.base_module, self.model_class_name)
         # Set the model properties
         self.base_model = base_cnn(input_shape=self.input_shape, weights=self.base_cnn_weight,
                                    pooling='avg', include_top=False)
-        x = Dropout(.75)(self.base_model.output)
-        x = Dense(128, activation='relu')(x)
+        x = Dropout(dropout)(self.base_model.output)
+        # x = Dense(128, activation='relu')(x)
         x = Dense(1, activation='linear')(x)
 
         self.model = Model(self.base_model.input, x)
@@ -247,6 +271,7 @@ class TechnicalModel:
         print_msg("Freezing base CNN's layers.", 1)
         for layer in self.base_model.layers:
             layer.trainable = False
+        self.freeze_base_cnn = True
 
     def compile(self):
         self.model.compile(loss=self.loss, optimizer=Adam(learning_rate=self.model_lr), metrics=self.metrics)
@@ -264,36 +289,41 @@ class TechnicalModel:
 
     def _liveloss_before_subplot(self, fig: plt.Figure, axs: np.ndarray, num_lg: int):
         """Add figure title"""
-        fig.suptitle(f'{self.model_type} - {self.model_class_name}', fontsize=10,
+        fig.suptitle(f'{self.model_type} - {self.model_class_name}', fontsize=14,
                      weight='bold', color='green')
         fig.set_figheight(6)
         fig.set_figwidth(10)
 
     def train_model(self, train_generator, validation_generator,
+                    lr_patience=5, es_patience=5, lr_factor=0.95,
                     prefix=None, epochs=32, verbose=0):
         """
         Train the final model for given parameters.
-        :param prefix:
-        :rtype: loss, acc by the evaluate method, acc will a list if metrics has multiple values
-        :param train_generator:
-        :param validation_generator:
-        :param epochs:
-        :param verbose:
+        :param train_generator: Training Data Generator
+        :param validation_generator: Validation Data Generator
+        :param epochs: Epochs to train
+        :param verbose: Verbose mode
+        :param lr_factor: ReduceLROnPlateau factor
+        :param es_patience: Patience for EarlyStopping
+        :param lr_patience: Patience for ReduceLROnPlateau
+        :param prefix: prefix string if any
         """
         callbacks = get_callbacks(self.weights_dir, self.model_type, self.model_class_name,
-                                  prefix=prefix, verbose=verbose)
+                                  prefix=prefix, verbose=verbose, freeze=self.freeze_base_cnn,
+                                  lr_patience=lr_patience, es_patience=es_patience, lr_factor=lr_factor,
+                                  liveloss_before_subplot=None)
         # start training
         start_time = time.perf_counter()
         history = self.model.fit(train_generator, validation_data=validation_generator,
                                  epochs=epochs, callbacks=callbacks,
-                                 verbose=verbose, use_multiprocessing=True)
+                                 verbose=verbose)
         end_time = time.perf_counter()
         print_msg(f'Training Time (HH:MM:SS) : {time.strftime("%H:%M:%S", time.gmtime(end_time - start_time))}', 1)
 
         result_df = pd.DataFrame(history.history)
         return result_df
 
-    def evaluate_model(self, df_test, test_generator, prefix=None):
+    def evaluate_model(self, df_test, test_generator, prefix=None, results_dir=RESULTS_DIR):
         # evaluate model
         eval_result = self.model.evaluate(test_generator)
         print_msg(f"loss({self.loss}) : {eval_result[0]} | accuracy({self.metrics}) : {eval_result[1:]}", 1)
@@ -303,7 +333,7 @@ class TechnicalModel:
         predict_df_filename = get_naming_prefix(self.model_type,
                                                 self.model_class_name,
                                                 prefix) + f'_pred.csv'
-        predict_file = os.path.join(RESULTS_DIR, predict_df_filename)
+        predict_file = os.path.join(results_dir, predict_df_filename)
         print_msg(f'saving predictions to {predict_file}', 1)
         df_test.to_csv(predict_file, index=False)
         return eval_result, df_test

@@ -118,7 +118,7 @@ def make_ava_csv_score(dataset_dir=None):
                                                         , axis=1))
     df.insert(4, 'std_score', df[ratings_column].apply(lambda row: get_std_score(normalize_ratings(row)), axis=1))
 
-    df.to_csv(os.path.join(dataset_dir, 'ava_with_score.csv'), sep=',', header=True, index=False)
+    df.to_csv(os.path.join(dataset_dir, 'ava_with_scores.csv'), sep=',', header=True, index=False)
 
 
 def get_ava_csv_score_df(dataset_dir=None):
@@ -168,9 +168,6 @@ def load_data(dataset_dir=None, sample_size=None):
     mean_range = 3
     if sample_size is None or sample_size > len(ava_csv_df):
         sample_size = len(ava_csv_df)
-        mean_range = 1
-    elif sample_size < 500:
-        mean_range = 2
 
     print_msg(f'Number of samples picked {sample_size}', 1)
     # Add label for stratification
@@ -178,7 +175,7 @@ def load_data(dataset_dir=None, sample_size=None):
     ava_csv_df['_label'] = np.floor(ava_csv_df['mean_score'] / mean_range)
     df = ava_csv_df[keep_columns].sample(n=sample_size).reset_index(drop=True)
 
-    df_train, df_test = train_test_split(df, test_size=0.05, shuffle=True,
+    df_train, df_test = train_test_split(df, test_size=0.1, shuffle=True,
                                          random_state=1024, stratify=df['_label'])
     df_train, df_valid = train_test_split(df_train, test_size=0.2, shuffle=True,
                                           random_state=1024, stratify=df_train['_label'])

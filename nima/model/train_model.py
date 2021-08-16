@@ -6,13 +6,10 @@ import pandas as pd
 # Disable extra logs
 import tensorflow as tf
 
-from nima.config import INPUT_SHAPE, DATASET_DIR, CROP_SHAPE, MODEL_BUILD_TYPE, print_msg, WEIGHTS_DIR, TID_DATASET_DIR, \
+from nima.config import INPUT_SHAPE, CROP_SHAPE, MODEL_BUILD_TYPE, print_msg, WEIGHTS_DIR, TID_DATASET_DIR, \
     AVA_DATASET_DIR
 from nima.model.data_generator import TrainDataGenerator, TestDataGenerator
-from nima.model.loss import earth_movers_distance
 from nima.model.model_builder import NIMA, get_model_weight_name, TechnicalModel
-from nima.utils.ava_dataset_utils import make_ava_csv
-from nima.utils.image_utils import clean_dataset
 
 tf.get_logger().setLevel('ERROR')  # Limit the tensorflow logs to ERROR only
 
@@ -129,7 +126,8 @@ def train_aesthetic_model(p_model_name, p_dataset_dir, p_sample_size,
     df_train, df_valid, df_test = load_data(ava_dataset_dir, p_sample_size)
     assert len(df_train) > 0 and len(df_valid) > 0 and len(df_test) > 0, 'Empty dataframe'
 
-    train_batch_size = valid_batch_size = p_batch_size
+    train_batch_size = p_batch_size
+    valid_batch_size = min(train_batch_size - 32, 32)
     test_batch_size = min(p_batch_size, 32, len(df_test))
 
     # Form the NIMA Aesthetic Model
@@ -155,11 +153,11 @@ def train_aesthetic_model(p_model_name, p_dataset_dir, p_sample_size,
     valid_generator = TrainDataGenerator(df_valid, ava_images_dir, x_col=x_col, y_col=y_cols,
                                          img_format=img_format, num_classes=10,
                                          preprocess_input=nima_aesthetic_cnn.get_preprocess_function(),
-                                         batch_size=train_batch_size, input_size=INPUT_SHAPE, crop_size=CROP_SHAPE)
+                                         batch_size=valid_batch_size, input_size=INPUT_SHAPE, crop_size=CROP_SHAPE)
 
     # Train the model
     print_msg("Training Aesthetic Model...")
-    prefix = 'freezed'
+    prefix = None
     train_result_df = nima_aesthetic_cnn.train_model(train_generator, valid_generator,
                                                      prefix=prefix, epochs=p_epochs, verbose=p_verbose)
 
@@ -172,7 +170,7 @@ def train_aesthetic_model(p_model_name, p_dataset_dir, p_sample_size,
                                        input_size=INPUT_SHAPE, batch_size=test_batch_size)
 
     eval_result, df_test = nima_aesthetic_cnn.evaluate_model(df_test, test_generator, prefix=prefix)
-    print(df_test.iloc[0])
+    print_msg(df_test.iloc[0])
     return train_result_df, df_test
 
 
@@ -201,10 +199,12 @@ def train_technical_model(p_model_name, p_dataset_dir, p_sample_size,
     x_col, y_cols = 'image_id', 'mean'
     df_train, df_valid, df_test = load_tid_data(tid_dataset_dir, p_sample_size)
     assert len(df_train) > 0 and len(df_valid) > 0 and len(df_test) > 0, 'Empty dataframe'
-    train_batch_size = valid_batch_size = p_batch_size
+    train_batch_size = p_batch_size;
+    valid_batch_size = min(train_batch_size - 32, 32)
     test_batch_size = min(p_batch_size, 32, len(df_test))
 
     # Form the NIMA Aesthetic Model
+    base_cnn_weight = 'imagenet' if p_weight_path is None else None
     nima_tech_cnn = TechnicalModel(p_model_name, weights_dir=p_weights_dir,
                                    input_shape=INPUT_SHAPE, crop_size=CROP_SHAPE,
                                    base_cnn_weight='imagenet')
@@ -232,16 +232,16 @@ def train_technical_model(p_model_name, p_dataset_dir, p_sample_size,
     print_msg("Training Technical Model...")
     print_msg(f'Training Batch size {train_batch_size}', 1)
     train_result_df = nima_tech_cnn.train_model(train_generator, valid_generator, epochs=p_epochs,
-                                                prefix='freezed', verbose=p_verbose)
+                                                verbose=p_verbose)
 
     # Test the model
     print_msg("Testing Model...")
     # Get the generator
-    test_generator = TestDataGenerator(df_test, tid_images_dir, x_col=x_col, y_col=y_cols,
+    test_generator = TestDataGenerator(df_test.copy(), tid_images_dir, x_col=x_col, y_col=y_cols,
                                        img_format=img_format, num_classes=1,
                                        preprocess_input=nima_tech_cnn.get_preprocess_function(),
                                        batch_size=test_batch_size, input_size=INPUT_SHAPE)
-    eval_result, df_test = nima_tech_cnn.evaluate_model(df_test, test_generator, )
+    eval_result, df_test = nima_tech_cnn.evaluate_model(df_test.copy(), test_generator, )
     print_msg(df_test.iloc[0])
     return train_result_df
 
