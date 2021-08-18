@@ -136,12 +136,8 @@ def train_aesthetic_model(p_model_name, p_dataset_dir, p_sample_size,
                               base_cnn_weight='imagenet')
 
     # Build the model for training
-    nima_aesthetic_cnn.build()
-    # weights are given load them else freeze base layers
-    if p_weight_path is not None:
-        nima_aesthetic_cnn.model.load_weights(p_weight_path)
-    else:
-        nima_aesthetic_cnn.freeze_base_layers()
+    nima_aesthetic_cnn.build(dropout=0.75)
+    nima_aesthetic_cnn.freeze_base_layers()
     nima_aesthetic_cnn.compile()
     nima_aesthetic_cnn.model.summary()
 
@@ -155,11 +151,16 @@ def train_aesthetic_model(p_model_name, p_dataset_dir, p_sample_size,
                                          preprocess_input=nima_aesthetic_cnn.get_preprocess_function(),
                                          batch_size=valid_batch_size, input_size=INPUT_SHAPE, crop_size=CROP_SHAPE)
 
-    # Train the model
+    # Pre Train the model
     print_msg("Training Aesthetic Model...")
-    prefix = None
+    nima_aesthetic_cnn.train_model(train_generator, valid_generator, prefix='pretrain', epochs=1, verbose=p_verbose)
+
+    # Train the model
+    nima_aesthetic_cnn.train_all_layers()
+    nima_aesthetic_cnn.compile()
+    print_msg("Training Aesthetic Model...")
     train_result_df = nima_aesthetic_cnn.train_model(train_generator, valid_generator,
-                                                     prefix=prefix, epochs=p_epochs, verbose=p_verbose)
+                                                     prefix=None, epochs=p_epochs, verbose=p_verbose)
 
     # Test the model
     print_msg("Testing Model...")
@@ -169,23 +170,21 @@ def train_aesthetic_model(p_model_name, p_dataset_dir, p_sample_size,
                                        preprocess_input=nima_aesthetic_cnn.get_preprocess_function(),
                                        input_size=INPUT_SHAPE, batch_size=test_batch_size)
 
-    eval_result, df_test = nima_aesthetic_cnn.evaluate_model(df_test, test_generator, prefix=prefix)
+    eval_result, df_test = nima_aesthetic_cnn.evaluate_model(df_test, test_generator)
     print_msg(df_test.iloc[0])
     return train_result_df, df_test
 
 
-def train_technical_model(p_model_name, p_dataset_dir, p_sample_size,
-                          p_weights_dir, p_weight_path,
-                          p_batch_size, p_epochs, p_verbose):
+def train_technical_model(p_model_name, p_dataset_dir, p_sample_size, p_epochs,
+                          p_weights_dir, p_batch_size, p_verbose):
     """
     Trains a technical model for the given parameters.
+    :param p_epochs: Number of epochs
     :param p_model_name: Model name from models.json
     :param p_dataset_dir: AVA Dataset directory
     :param p_sample_size: No. of samples to train on; None for full dataset
     :param p_batch_size: Training and validation batch size to keep
-    :param p_epochs: No. of epochs to train on
     :param p_verbose: Verbose mode value
-    :param p_weight_path: Model's weight path to load existing weight
     :param p_weights_dir: Path to save model's weight
     :return: Training history DataFrame and Test DataFrame having predictions
     """
@@ -204,20 +203,14 @@ def train_technical_model(p_model_name, p_dataset_dir, p_sample_size,
     test_batch_size = min(p_batch_size, 32, len(df_test))
 
     # Form the NIMA Aesthetic Model
-    base_cnn_weight = 'imagenet' if p_weight_path is None else None
     nima_tech_cnn = TechnicalModel(p_model_name, weights_dir=p_weights_dir,
                                    input_shape=INPUT_SHAPE, crop_size=CROP_SHAPE,
                                    base_cnn_weight='imagenet')
 
     # Build the model for training
     nima_tech_cnn.build()
-    # weights are given load them else freeze base layers
-    if p_weight_path is not None:
-        nima_tech_cnn.model.load_weights(p_weight_path)
-    else:
-        nima_tech_cnn.freeze_base_layers()
+    nima_tech_cnn.freeze_base_layers()
     nima_tech_cnn.compile()
-    nima_tech_cnn.model.summary()
 
     # Get the generator
     train_generator = TrainDataGenerator(df_train, tid_images_dir, x_col=x_col, y_col=y_cols,
@@ -228,12 +221,18 @@ def train_technical_model(p_model_name, p_dataset_dir, p_sample_size,
                                          preprocess_input=nima_tech_cnn.get_preprocess_function(),
                                          batch_size=valid_batch_size, input_size=INPUT_SHAPE, crop_size=CROP_SHAPE)
 
+    # PreTrain the model
+    print_msg("Pre Training Technical Model...")
+    print_msg(f'Training Batch size {train_batch_size}', 1)
+    nima_tech_cnn.pretrain_model(train_generator, valid_generator, epochs=1, verbose=p_verbose)
+
     # Train the model
+    nima_tech_cnn.train_all_layers()
+    nima_tech_cnn.compile()
     print_msg("Training Technical Model...")
     print_msg(f'Training Batch size {train_batch_size}', 1)
-    train_result_df = nima_tech_cnn.train_model(train_generator, valid_generator, epochs=p_epochs,
-                                                verbose=p_verbose)
-
+    train_result_df = nima_tech_cnn.train_model(train_generator, valid_generator, epochs=p_epochs, verbose=p_verbose,
+                                                lr_patience=5, es_patience=5, lr_factor=.95)
     # Test the model
     print_msg("Testing Model...")
     # Get the generator
@@ -306,7 +305,6 @@ if __name__ == '__main__':
                               p_dataset_dir=arg_dataset_dir,
                               p_sample_size=arg_sample_size,
                               p_weights_dir=arg_weights_dir,
-                              p_weight_path=arg_weight_file,
-                              p_batch_size=arg_batch_size,
                               p_epochs=arg_epochs,
+                              p_batch_size=arg_batch_size,
                               p_verbose=arg_verbose)

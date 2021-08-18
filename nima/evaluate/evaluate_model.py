@@ -4,7 +4,7 @@ import os
 from nima.config import DATASET_DIR, MODEL_BUILD_TYPE, print_msg, INPUT_SHAPE, TID_DATASET_DIR, \
     CROP_SHAPE, AVA_DATASET_DIR
 from nima.model.data_generator import TestDataGenerator
-from nima.model.loss import earth_movers_distance
+from nima.model.loss import earth_movers_distance, lcc, srcc
 from nima.model.model_builder import NIMA, TechnicalModel
 from nima.utils.ava_dataset_utils import get_ava_csv_score_df
 from nima.utils.tid_dataset_utils import get_mos_csv_df
@@ -55,15 +55,12 @@ def test_aesthetic_model(p_model_name, p_dataset_dir=TID_DATASET_DIR, p_sample_s
 
     # view the accuracy
     pred_columns = [column for column in df_test.columns.tolist() if column.startswith('pred')]
-    from sklearn.metrics import mean_squared_error, mean_absolute_error
-    mse = mean_squared_error(df_test['mean_score'].to_numpy(), df_test['pred_mean_score'].to_numpy())
-    mae = mean_absolute_error(df_test['mean_score'].to_numpy(), df_test['pred_mean_score'].to_numpy())
     emd = earth_movers_distance(df_test[get_rating_columns()],
                                 df_test[pred_columns].drop(['pred_mean_score', 'pred_max_rating'], axis=1))
-    print_msg(f"For mean score - mse : {mse}, mae : {mae}")
+    print_msg(f"For mean score - mse : {spearman_correlation}, mae : {pearson_correlation}")
     print_msg(f"For ratings - emd : {emd}")
     print_msg(df_test.iloc[0])
-    return mse, mae, df_test
+    return spearman_correlation, pearson_correlation, df_test
 
 
 def eval_technical_model(p_model_name, p_dataset_dir=TID_DATASET_DIR, p_sample_size=300,
@@ -118,15 +115,14 @@ def eval_technical_model(p_model_name, p_dataset_dir=TID_DATASET_DIR, p_sample_s
 
     # Get the prediction
     print_msg(f'Testing with Batch size:{test_batch_size}', 1)
-    eval_result, df_test = nima_tech_cnn.evaluate_model(df_test, test_generator, prefix='freezed')
+    eval_result, df_test = nima_tech_cnn.evaluate_model(df_test, test_generator)
 
     # view the accuracy
-    from sklearn.metrics import mean_squared_error, mean_absolute_error
-    mse = mean_squared_error(df_test['mean'].to_numpy(), df_test['pred_mean'].to_numpy())
-    mae = mean_absolute_error(df_test['mean'].to_numpy(), df_test['pred_mean'].to_numpy())
-    print_msg(f"mse : {mse}, mae : {mae}")
+    spearman_correlation = srcc(df_test['mean_score'].to_numpy(), df_test['pred_mean_score'].to_numpy())
+    pearson_correlation = lcc(df_test['mean_score'].to_numpy(), df_test['pred_mean_score'].to_numpy())
+    print_msg(f"pearson_correlation : {pearson_correlation}, spearman_correlation : {spearman_correlation}")
     print_msg(df_test.iloc[0])
-    return mse, mae, df_test
+    return pearson_correlation, spearman_correlation, df_test
 
 
 if __name__ == '__main__':

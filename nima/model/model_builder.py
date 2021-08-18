@@ -14,7 +14,7 @@ from tensorflow.keras.optimizers import Adam
 
 from nima.config import MODELS_JSON_FILE_PATH, WEIGHTS_DIR, MODEL_BUILD_TYPE, print_msg, INPUT_SHAPE, CROP_SHAPE, \
     RESULTS_DIR
-from nima.model.loss import earth_movers_distance
+from nima.model.loss import earth_movers_distance, lcc, srcc, two_class_quality, mean_abs_percentage
 from nima.utils.preprocess import get_mean_quality_score, normalize_ratings, get_std_score
 from nima.utils.tid_dataset_utils import TID_MAX_MEAN_SCORE
 
@@ -30,14 +30,10 @@ def get_models_dict():
     return models
 
 
-def get_naming_prefix(model_type, model_class_name, prefix=None, freeze=False):
+def get_naming_prefix(model_type, model_class_name, prefix=None):
     weight_filename = f'{model_class_name}_{model_type}'
     if prefix is not None:
         weight_filename = weight_filename + '_' + prefix
-    if freeze:
-        weight_filename = weight_filename + '_freezed'
-    else:
-        weight_filename = weight_filename + '_all_trained'
 
     return weight_filename
 
@@ -70,10 +66,10 @@ def _get_base_module(model_name):
 
 
 def get_callbacks(weights_dir, model_type, model_class_name, prefix=None, liveloss_before_subplot=None,
-                  freeze=False, verbose=0, lr_patience=5, es_patience=5, lr_factor=0.95):
+                  verbose=0, lr_patience=5, es_patience=5, lr_factor=0.95):
     es = EarlyStopping(monitor='val_loss', patience=lr_patience, mode='auto', verbose=verbose)
     lr = ReduceLROnPlateau(monitor='val_loss', factor=lr_factor, patience=es_patience, verbose=verbose)
-    model_save_name = get_naming_prefix(model_type, model_class_name, prefix=prefix, freeze=freeze)
+    model_save_name = get_naming_prefix(model_type, model_class_name, prefix=prefix)
     # Live loss
     liveloss_filename = os.path.join(weights_dir, model_save_name + ".png")
     print_msg(f'Figure path : {liveloss_filename}', 1)
@@ -115,7 +111,7 @@ class NIMA:
         self.model = None
         self.weights_dir = weights_dir
         self.loss = earth_movers_distance
-        self.metrics = None
+        self.metrics = [two_class_quality, earth_movers_distance, mean_abs_percentage]
         self.model_lr = model_lr
         self.base_cnn_weight = base_cnn_weight
         self.input_shape = input_shape
@@ -183,11 +179,37 @@ class NIMA:
         fig.set_figheight(16)
         fig.set_figwidth(12)
 
+    def pretrain_model(self, train_generator, validation_generator,
+                       prefix='pretrained', epochs=1, verbose=0):
+        """
+        Pre Train the model for last layer, make sure to call freeze_base_layers.
+        :param train_generator: Training Data Generator
+        :param validation_generator: Validation Data Generator
+        :param epochs: Epochs to train
+        :param verbose: Verbose mode
+        :param prefix: prefix string if any
+        """
+        callbacks = get_callbacks(self.weights_dir, self.model_type, self.model_class_name,
+                                  prefix=prefix, verbose=verbose,
+                                  liveloss_before_subplot=None)
+        # start training
+        start_time = time.perf_counter()
+        history = self.model.fit(train_generator, validation_data=validation_generator,
+                                 epochs=epochs, callbacks=callbacks,
+                                 verbose=verbose, )
+
+        end_time = time.perf_counter()
+        print_msg(f'Training Time (HH:MM:SS) : {time.strftime("%H:%M:%S", time.gmtime(end_time - start_time))}', 1)
+
+        result_df = pd.DataFrame(history.history)
+        return result_df
+
     def train_model(self, train_generator, validation_generator,
                     lr_patience=5, es_patience=5, lr_factor=0.95,
                     prefix=None, epochs=32, verbose=0):
         """
-        Train the final model for given parameters.
+        Train the final model for given parameters with all layers trainable.
+        Make sure to load the model with pretrained weights and call train_all_layers() before this
         :param train_generator: Training Data Generator
         :param validation_generator: Validation Data Generator
         :param epochs: Epochs to train
@@ -239,7 +261,7 @@ class NIMA:
 
 class TechnicalModel:
     def __init__(self, model_name, base_cnn_weight='imagenet', input_shape=INPUT_SHAPE, crop_size=CROP_SHAPE,
-                 model_lr=3e-7, weights_dir=WEIGHTS_DIR):
+                 weights_dir=WEIGHTS_DIR):
         self.model_name = model_name
         self.model_type = MODEL_BUILD_TYPE[1]
         self.model_class_name = None
@@ -248,11 +270,11 @@ class TechnicalModel:
         self.model = None
         self.base_cnn_weight = base_cnn_weight
         self.weights_dir = weights_dir
-        self.model_lr = model_lr
+        self.model_lr = 0.001
         self.input_shape = input_shape
         self.crop_size = crop_size
-        self.loss = 'mean_squared_error'
-        self.metrics = ['mean_absolute_error', 'mean_squared_error']
+        self.loss = 'mse'
+        self.metrics = ['mse', lcc]
         self.model_class_name, self.model_name, self.base_module = _get_base_module(self.model_name)
         self.freeze_base_cnn = False
 
@@ -262,10 +284,15 @@ class TechnicalModel:
         self.base_model = base_cnn(input_shape=self.input_shape, weights=self.base_cnn_weight,
                                    pooling='avg', include_top=False)
         x = Dropout(dropout)(self.base_model.output)
-        # x = Dense(128, activation='relu')(x)
+        x = Dense(128, activation='tanh')(x)
         x = Dense(1, activation='linear')(x)
 
         self.model = Model(self.base_model.input, x)
+
+    def train_all_layers(self):
+        print_msg('Allowing training on all base CNN layers.', 1)
+        for layer in self.base_model.layers:
+            layer.trainable = True
 
     def freeze_base_layers(self):
         print_msg("Freezing base CNN's layers.", 1)
@@ -294,11 +321,37 @@ class TechnicalModel:
         fig.set_figheight(6)
         fig.set_figwidth(10)
 
+    def pretrain_model(self, train_generator, validation_generator,
+                       prefix='pretrained', epochs=1, verbose=0):
+        """
+        Pre Train the model for last layer, make sure to call freeze_base_layers.
+        :param train_generator: Training Data Generator
+        :param validation_generator: Validation Data Generator
+        :param epochs: Epochs to train
+        :param verbose: Verbose mode
+        :param prefix: prefix string if any
+        """
+        callbacks = get_callbacks(self.weights_dir, self.model_type, self.model_class_name,
+                                  prefix=prefix, verbose=verbose,
+                                  liveloss_before_subplot=None)
+        # start training
+        start_time = time.perf_counter()
+        history = self.model.fit(train_generator, validation_data=validation_generator,
+                                 epochs=epochs, callbacks=callbacks,
+                                 verbose=verbose, )
+
+        end_time = time.perf_counter()
+        print_msg(f'Training Time (HH:MM:SS) : {time.strftime("%H:%M:%S", time.gmtime(end_time - start_time))}', 1)
+
+        result_df = pd.DataFrame(history.history)
+        return result_df
+
     def train_model(self, train_generator, validation_generator,
                     lr_patience=5, es_patience=5, lr_factor=0.95,
                     prefix=None, epochs=32, verbose=0):
         """
-        Train the final model for given parameters.
+        Train the final model for given parameters with all layers trainable.
+        Make sure to load the model with pretrained weights and call train_all_layers() before this
         :param train_generator: Training Data Generator
         :param validation_generator: Validation Data Generator
         :param epochs: Epochs to train
@@ -309,8 +362,8 @@ class TechnicalModel:
         :param prefix: prefix string if any
         """
         callbacks = get_callbacks(self.weights_dir, self.model_type, self.model_class_name,
-                                  prefix=prefix, verbose=verbose, freeze=self.freeze_base_cnn,
-                                  lr_patience=lr_patience, es_patience=es_patience, lr_factor=lr_factor,
+                                  prefix=prefix, verbose=verbose, lr_patience=lr_patience, es_patience=es_patience,
+                                  lr_factor=lr_factor,
                                   liveloss_before_subplot=None)
         # start training
         start_time = time.perf_counter()
@@ -330,6 +383,7 @@ class TechnicalModel:
         # predict the values from model
         predictions = self.model.predict(test_generator)
         df_test['pred_mean'] = predictions * TID_MAX_MEAN_SCORE
+        df_test['mean'] = df_test['mean'] * TID_MAX_MEAN_SCORE
         predict_df_filename = get_naming_prefix(self.model_type,
                                                 self.model_class_name,
                                                 prefix) + f'_pred.csv'
