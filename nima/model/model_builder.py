@@ -14,7 +14,8 @@ from tensorflow.keras.optimizers import Adam
 
 from nima.config import MODELS_JSON_FILE_PATH, WEIGHTS_DIR, MODEL_BUILD_TYPE, print_msg, INPUT_SHAPE, CROP_SHAPE, \
     RESULTS_DIR
-from nima.model.loss import earth_movers_distance, lcc, srcc, two_class_quality, mean_abs_percentage
+from nima.model.loss import earth_movers_distance, pearson_corelation, spearman_corelation, two_class_quality, \
+    mean_abs_percentage
 from nima.utils.preprocess import get_mean_quality_score, normalize_ratings, get_std_score
 from nima.utils.tid_dataset_utils import TID_MAX_MEAN_SCORE
 
@@ -111,7 +112,7 @@ class NIMA:
         self.model = None
         self.weights_dir = weights_dir
         self.loss = earth_movers_distance
-        self.metrics = [two_class_quality, earth_movers_distance, mean_abs_percentage]
+        self.metrics = [two_class_quality, mean_abs_percentage]
         self.model_lr = model_lr
         self.base_cnn_weight = base_cnn_weight
         self.input_shape = input_shape
@@ -274,7 +275,7 @@ class TechnicalModel:
         self.input_shape = input_shape
         self.crop_size = crop_size
         self.loss = 'mse'
-        self.metrics = ['mse', lcc]
+        self.metrics = [spearman_corelation, pearson_corelation, mean_abs_percentage]
         self.model_class_name, self.model_name, self.base_module = _get_base_module(self.model_name)
         self.freeze_base_cnn = False
 

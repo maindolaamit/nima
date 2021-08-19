@@ -4,7 +4,7 @@ import os
 from nima.config import DATASET_DIR, MODEL_BUILD_TYPE, print_msg, INPUT_SHAPE, TID_DATASET_DIR, \
     CROP_SHAPE, AVA_DATASET_DIR
 from nima.model.data_generator import TestDataGenerator
-from nima.model.loss import earth_movers_distance, lcc, srcc
+from nima.model.loss import earth_movers_distance, pearson_corelation, spearman_corelation
 from nima.model.model_builder import NIMA, TechnicalModel
 from nima.utils.ava_dataset_utils import get_ava_csv_score_df
 from nima.utils.tid_dataset_utils import get_mos_csv_df
@@ -118,8 +118,8 @@ def eval_technical_model(p_model_name, p_dataset_dir=TID_DATASET_DIR, p_sample_s
     eval_result, df_test = nima_tech_cnn.evaluate_model(df_test, test_generator)
 
     # view the accuracy
-    spearman_correlation = srcc(df_test['mean_score'].to_numpy(), df_test['pred_mean_score'].to_numpy())
-    pearson_correlation = lcc(df_test['mean_score'].to_numpy(), df_test['pred_mean_score'].to_numpy())
+    spearman_correlation = spearman_corelation(df_test['mean'].to_numpy(), df_test['pred_mean'].to_numpy())
+    pearson_correlation = pearson_corelation(df_test['mean'].to_numpy(), df_test['pred_mean'].to_numpy())
     print_msg(f"pearson_correlation : {pearson_correlation}, spearman_correlation : {spearman_correlation}")
     print_msg(df_test.iloc[0])
     return pearson_correlation, spearman_correlation, df_test

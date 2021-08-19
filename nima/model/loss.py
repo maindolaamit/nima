@@ -11,29 +11,34 @@ def earth_movers_distance(y_true, y_pred):
     return K.mean(emd)
 
 
-def lcc(y_true, y_pred):
-    means_true = y_true - K.mean(y_true)
-    means_pred = y_pred - K.mean(y_pred)
-    means_true = K.l2_normalize(means_true, axis=0)
-    means_pred = K.l2_normalize(means_pred, axis=0)
+def pearson_corelation(y_true, y_pred):
+    x, y = tf.constant(y_true), tf.constant(y_pred)
+    # means_true = x - K.mean(x)
+    # means_pred = y - K.mean(y)
+    # means_true = K.l2_normalize(means_true, axis=0)
+    # means_pred = K.l2_normalize(means_pred, axis=0)
+    #
+    # # final result
+    # pearson_correlation = K.sum(means_true * means_pred)
+    # return 1. - K.square(pearson_correlation)  # is is actually R-squared from regression
+    return ss.pearsonr(x, y)[0]
 
-    # final result
-    pearson_correlation = K.sum(means_true * means_pred)
-    return 1. - K.square(pearson_correlation)  # is is actually R-squared from regression
 
-
-def srcc(y_true, y_pred):
-    return ss.spearmanr(y_true, y_pred)
+def spearman_corelation(y_true, y_pred):
+    x, y = tf.constant(y_true), tf.constant(y_pred)
+    return ss.spearmanr(x, y)[0]
 
 
 def two_class_quality(y_true, y_pred):
-    score = K.equal(tf.floor(y_true / 5), tf.floor(y_pred / 5))
+    x, y = tf.constant(y_true), tf.constant(y_pred)
+    score = K.equal(tf.floor(x / 5), tf.floor(y / 5))
     return K.mean(score)
 
 
 def mean_abs_percentage(y_true, y_pred):
-    abs = K.abs(y_true - y_pred) / y_true
-    return K.mean(1 - abs)
+    x, y = tf.constant(y_true), tf.constant(y_pred)
+    abs_diff = K.abs(y - y) / x
+    return K.mean(1 - abs_diff)
 
 
 if __name__ == '__main__':
@@ -42,9 +47,10 @@ if __name__ == '__main__':
 
     print(a)
     print(b)
-    print(lcc(a, b))
+    print(pearson_corelation(a, b))
     print(ss.pearsonr(a, b))
-    print(srcc(a, b))
+    print(spearman_corelation(a, b))
+    print(ss.spearmanr(a, b))
 
     a = np.array([1.62, 4.83, 5.89, 8.55, 8.74, 6.6, ])
     b = np.array([2.62, 3.83, 1.89, 6.55, 5.74, 4.6, ])

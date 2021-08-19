@@ -152,8 +152,8 @@ def train_aesthetic_model(p_model_name, p_dataset_dir, p_sample_size,
                                          batch_size=valid_batch_size, input_size=INPUT_SHAPE, crop_size=CROP_SHAPE)
 
     # Pre Train the model
-    print_msg("Training Aesthetic Model...")
-    nima_aesthetic_cnn.train_model(train_generator, valid_generator, prefix='pretrain', epochs=1, verbose=p_verbose)
+    print_msg("Pre-Training Aesthetic Model...")
+    nima_aesthetic_cnn.pretrain_model(train_generator, valid_generator, prefix='pretrain', epochs=1, verbose=p_verbose)
 
     # Train the model
     nima_aesthetic_cnn.train_all_layers()
