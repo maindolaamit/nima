@@ -101,8 +101,7 @@ def train_model_cv(model_name, model_type, images_dir,
 
 
 def train_aesthetic_model(p_model_name, p_dataset_dir, p_sample_size,
-                          p_weights_dir, p_weight_path,
-                          p_batch_size, p_epochs, p_verbose):
+                          p_weights_dir, p_batch_size, p_epochs, p_verbose):
     """
     Train the Aesthetic Model
     :param p_model_name: Model name from models.json
@@ -111,7 +110,6 @@ def train_aesthetic_model(p_model_name, p_dataset_dir, p_sample_size,
     :param p_batch_size: Training and validation batch size to keep
     :param p_epochs: No. of epochs to train on
     :param p_verbose: Verbose mode value
-    :param p_weight_path: Model's weight path to load existing weight
     :param p_weights_dir: Path to save model's weight
     :return: Training history DataFrame and Test DataFrame having predictions
     """
@@ -295,7 +293,6 @@ if __name__ == '__main__':
                               p_dataset_dir=arg_dataset_dir,
                               p_sample_size=arg_sample_size,
                               p_weights_dir=arg_weights_dir,
-                              p_weight_path=arg_weight_file,
                               p_batch_size=arg_batch_size,
                               p_epochs=arg_epochs,
                               p_verbose=arg_verbose)

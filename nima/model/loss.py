@@ -1,7 +1,9 @@
 import numpy as np
-from tensorflow.keras import backend as K
 import scipy.stats as ss
 import tensorflow as tf
+from tensorflow.keras import backend as K
+
+rating_weights = K.expand_dims(tf.constant(np.arange(1, 11), dtype='float32'), -1)
 
 
 def earth_movers_distance(y_true, y_pred):
@@ -11,34 +13,41 @@ def earth_movers_distance(y_true, y_pred):
     return K.mean(emd)
 
 
-def pearson_corelation(y_true, y_pred):
-    x, y = tf.constant(y_true), tf.constant(y_pred)
-    # means_true = x - K.mean(x)
-    # means_pred = y - K.mean(y)
-    # means_true = K.l2_normalize(means_true, axis=0)
-    # means_pred = K.l2_normalize(means_pred, axis=0)
-    #
-    # # final result
-    # pearson_correlation = K.sum(means_true * means_pred)
-    # return 1. - K.square(pearson_correlation)  # is is actually R-squared from regression
-    return ss.pearsonr(x, y)[0]
+def pearson_correlation(y_true, y_pred):
+    x, y = y_true, y_pred
+
+    xm = x - K.mean(x)
+    ym = y - K.mean(y)
+    pearson_correlation = K.sum(xm * ym) / K.sqrt(K.sum(K.square(xm) * K.square(ym)))
+    return K.square(pearson_correlation)  # is is actually R-squared from regression
 
 
-def spearman_corelation(y_true, y_pred):
-    x, y = tf.constant(y_true), tf.constant(y_pred)
-    return ss.spearmanr(x, y)[0]
+def pearson_correlation_ava(y_true, y_pred):
+    x = K.cumsum(K.dot(y_true, rating_weights))
+    y = K.cumsum(K.dot(y_pred, rating_weights))
+    return pearson_correlation(x, y)
+
+
+def spearman_correlation(y_true, y_pred):
+    return ss.spearmanr(y_true.numpy(), y_pred.numpy())[0]
 
 
 def two_class_quality(y_true, y_pred):
-    x, y = tf.constant(y_true), tf.constant(y_pred)
+    x = K.dot(y_true, rating_weights)
+    y = K.dot(y_pred, rating_weights)
     score = K.equal(tf.floor(x / 5), tf.floor(y / 5))
     return K.mean(score)
 
 
 def mean_abs_percentage(y_true, y_pred):
-    x, y = tf.constant(y_true), tf.constant(y_pred)
-    abs_diff = K.abs(y - y) / x
+    abs_diff = K.abs(y_pred - y_true) / y_true
     return K.mean(1 - abs_diff)
+
+
+def mean_abs_percentage_ava(y_true, y_pred):
+    x = K.dot(y_true, rating_weights)
+    y = K.dot(y_pred, rating_weights)
+    return mean_abs_percentage(x, y)
 
 
 if __name__ == '__main__':
@@ -47,9 +56,9 @@ if __name__ == '__main__':
 
     print(a)
     print(b)
-    print(pearson_corelation(a, b))
+    print(pearson_correlation(a, b))
     print(ss.pearsonr(a, b))
-    print(spearman_corelation(a, b))
+    print(spearman_correlation(a, b))
     print(ss.spearmanr(a, b))
 
     a = np.array([1.62, 4.83, 5.89, 8.55, 8.74, 6.6, ])
