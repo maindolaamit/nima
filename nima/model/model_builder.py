@@ -15,7 +15,7 @@ from tensorflow.keras.optimizers import Adam
 from nima.config import MODELS_JSON_FILE_PATH, WEIGHTS_DIR, MODEL_BUILD_TYPE, print_msg, INPUT_SHAPE, CROP_SHAPE, \
     RESULTS_DIR
 from nima.model.loss import earth_movers_distance, pearson_correlation, spearman_correlation, two_class_quality, \
-    mean_abs_percentage, mean_abs_percentage_ava
+    mean_abs_percentage, mean_abs_percentage_ava, pearson_correlation_ava
 from nima.utils.preprocess import get_mean_quality_score, normalize_ratings, get_std_score
 from nima.utils.tid_dataset_utils import TID_MAX_MEAN_SCORE
 

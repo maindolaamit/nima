@@ -14,12 +14,26 @@ def earth_movers_distance(y_true, y_pred):
 
 
 def pearson_correlation(y_true, y_pred):
-    x, y = y_true, y_pred
+    # y_true = y_true * rating_weights
+    # y_pred = y_pred * rating_weights
+    #
+    # xm = y_true - K.mean(y_true)
+    # ym = y_pred - K.mean(y_pred)
+    # print(xm, ym)
+    # pearson_correlation = K.sum(xm * ym) / K.sqrt(K.sum(K.square(xm) * K.square(ym)))
+    # print(pearson_correlation)
+    # return K.square(pearson_correlation)  # is is actually R-squared from regression
+    means_true = y_true - K.mean(y_true)
+    means_pred = y_pred - K.mean(y_pred)
 
-    xm = x - K.mean(x)
-    ym = y - K.mean(y)
-    pearson_correlation = K.sum(xm * ym) / K.sqrt(K.sum(K.square(xm) * K.square(ym)))
-    return K.square(pearson_correlation)  # is is actually R-squared from regression
+    # normalizing stage - setting a 1 variance
+    means_true = K.l2_normalize(means_true, axis=0)
+    means_pred = K.l2_normalize(means_pred, axis=0)
+
+    # final result
+    pearson_correlation = K.sum(means_true * means_pred)
+
+    return pearson_correlation
 
 
 def pearson_correlation_ava(y_true, y_pred):
