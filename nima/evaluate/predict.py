@@ -6,8 +6,9 @@ import pandas as pd
 from nima.config import INPUT_SHAPE, print_msg, CROP_SHAPE, RESULTS_DIR
 from nima.model.data_generator import TestDataGenerator
 from nima.model.model_builder import TechnicalModel, NIMA
-from nima.utils.image_utils import rename_images, get_images
-from nima.utils.preprocess import show_images_with_score
+from nima.utils.ava_dataset_utils import get_rating_columns
+from nima.utils.image_utils import get_images
+from nima.utils.preprocess import show_images_with_score, get_mean_quality_score, normalize_ratings
 
 
 def get_aesthetic_prediction(p_model_name, p_dataset_dir, p_weight_file, df):
@@ -31,9 +32,11 @@ def get_aesthetic_prediction(p_model_name, p_dataset_dir, p_weight_file, df):
 
     # Get the prediction
     predictions = nima_aes_cnn.model.predict(test_generator)
-    df['aes_mean_score'] = predictions
-
-    return df
+    pred_columns = [f'pred_{column}' for column in get_rating_columns()]
+    df_pred = pd.DataFrame(predictions, columns=pred_columns)
+    df_pred['aes_mean_score'] = df_pred[pred_columns].apply(lambda x:
+                                                             get_mean_quality_score(normalize_ratings(x)), axis=1)
+    return pd.concat([df, df_pred], axis=1)
 
 
 def get_technical_predictions(p_model_name, p_dataset_dir, p_weight_file, df):

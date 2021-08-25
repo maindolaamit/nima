@@ -214,15 +214,15 @@ def train_technical_model(p_model_name, p_dataset_dir, p_sample_size, p_epochs,
     train_generator = TrainDataGenerator(df_train, tid_images_dir, x_col=x_col, y_col=y_cols,
                                          img_format=img_format, num_classes=1,
                                          preprocess_input=nima_tech_cnn.get_preprocess_function(),
-                                         batch_size=train_batch_size, input_size=INPUT_SHAPE, crop_size=CROP_SHAPE)
+                                         batch_size=train_batch_size, input_size=INPUT_SHAPE, crop_size=CROP_SHAPE, normalize_pixels=True)
     valid_generator = TrainDataGenerator(df_valid, tid_images_dir, x_col, y_cols, img_format=img_format, num_classes=1,
                                          preprocess_input=nima_tech_cnn.get_preprocess_function(),
-                                         batch_size=valid_batch_size, input_size=INPUT_SHAPE, crop_size=CROP_SHAPE)
+                                         batch_size=valid_batch_size, input_size=INPUT_SHAPE, crop_size=CROP_SHAPE, normalize_pixels=True)
 
     # PreTrain the model
     print_msg("Pre Training Technical Model...")
     print_msg(f'Training Batch size {train_batch_size}', 1)
-    nima_tech_cnn.pretrain_model(train_generator, valid_generator, epochs=1, verbose=p_verbose)
+    nima_tech_cnn.pretrain_model(train_generator, valid_generator, epochs=3, verbose=p_verbose)
 
     # Train the model
     nima_tech_cnn.train_all_layers()
@@ -237,7 +237,7 @@ def train_technical_model(p_model_name, p_dataset_dir, p_sample_size, p_epochs,
     test_generator = TestDataGenerator(df_test.copy(), tid_images_dir, x_col=x_col, y_col=y_cols,
                                        img_format=img_format, num_classes=1,
                                        preprocess_input=nima_tech_cnn.get_preprocess_function(),
-                                       batch_size=test_batch_size, input_size=INPUT_SHAPE)
+                                       batch_size=test_batch_size, input_size=INPUT_SHAPE, normalize_pixels=True)
     eval_result, df_test = nima_tech_cnn.evaluate_model(df_test.copy(), test_generator, )
     print_msg(df_test.iloc[0])
     return train_result_df

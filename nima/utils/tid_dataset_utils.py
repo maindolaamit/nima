@@ -83,7 +83,7 @@ def load_tid_data(dataset_dir=None, sample_size=None, require_validation_data=Tr
     # if require_validation_data:
     df_train, df_valid = train_test_split(df_train, test_size=0.2, shuffle=True, random_state=1024)
 
-    df_train['mean'] = df_train['mean'] / TID_MAX_MEAN_SCORE  # Normalize mean
-    df_valid['mean'] = df_valid['mean'] / TID_MAX_MEAN_SCORE  # Normalize mean
-    df_test['mean'] = df_test['mean'] / TID_MAX_MEAN_SCORE  # Normalize mean
+    df_train['mean'] = df_train['mean'] #/ TID_MAX_MEAN_SCORE  # Normalize mean
+    df_valid['mean'] = df_valid['mean'] #/ TID_MAX_MEAN_SCORE  # Normalize mean
+    df_test['mean'] = df_test['mean'] #/ TID_MAX_MEAN_SCORE  # Normalize mean
     return df_train.reset_index(drop=True), df_valid.reset_index(drop=True), df_test

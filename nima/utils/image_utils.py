@@ -58,7 +58,8 @@ def filter_valid_images(df, img_directory, x_col, img_format):
         absolute paths to image files
     """
     filepaths = df[x_col].map(lambda fname: os.path.join(img_directory, f'{fname}.{img_format}'))
-    mask = filepaths.apply(lambda x: os.path.isfile(x) and is_valid_image(x))
+    # mask = filepaths.apply(lambda x: os.path.isfile(x) and is_valid_image(x)) # Commented for performance reasons
+    mask = filepaths.apply(lambda x: os.path.isfile(x))
     n_invalid = (~mask).sum()
     if n_invalid:
         warnings.warn(f'Found {n_invalid} invalid image filename(s) in x_col="{x_col}".'

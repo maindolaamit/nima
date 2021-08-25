@@ -383,8 +383,8 @@ class TechnicalModel:
         print_msg(f"loss({self.loss}) : {eval_result[0]} | accuracy({self.metrics}) : {eval_result[1:]}", 1)
         # predict the values from model
         predictions = self.model.predict(test_generator)
-        df_test['pred_mean'] = predictions * TID_MAX_MEAN_SCORE
-        df_test['mean'] = df_test['mean'] * TID_MAX_MEAN_SCORE
+        df_test['pred_mean'] = predictions  # * TID_MAX_MEAN_SCORE
+        df_test['mean'] = df_test['mean']  # * TID_MAX_MEAN_SCORE
         predict_df_filename = get_naming_prefix(self.model_type,
                                                 self.model_class_name,
                                                 prefix) + f'_pred.csv'
