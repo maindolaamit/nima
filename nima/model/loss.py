@@ -53,9 +53,22 @@ def two_class_quality(y_true, y_pred):
     return K.mean(score)
 
 
+def two_class_quality_acc(y_true, y_pred):
+    x = np.array(y_true)
+    y = np.array(y_pred)
+    score = np.equal(np.floor(x / 5), np.floor(y / 5))
+    return np.mean(score)
+
+
 def mean_abs_percentage(y_true, y_pred):
     abs_diff = K.abs(y_pred - y_true) / y_true
     return K.mean(1 - abs_diff)
+
+
+def mean_abs_percentage_acc(y_true, y_pred):
+    x, y = np.array(y_true), np.array(y_pred)
+    abs_diff = np.abs(x - y) / x
+    return np.mean(1 - abs_diff)
 
 
 def mean_abs_percentage_ava(y_true, y_pred):

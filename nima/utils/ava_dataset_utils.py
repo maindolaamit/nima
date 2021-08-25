@@ -119,6 +119,7 @@ def make_ava_csv_score(dataset_dir=None):
     df.insert(4, 'std_score', df[ratings_column].apply(lambda row: get_std_score(normalize_ratings(row)), axis=1))
 
     df.to_csv(os.path.join(dataset_dir, 'ava_with_scores.csv'), sep=',', header=True, index=False)
+    print_msg(f"Saved file {os.path.join(dataset_dir, 'ava_with_scores.csv')}")
 
 
 def get_ava_csv_score_df(dataset_dir=None):
@@ -188,3 +189,4 @@ def load_data(dataset_dir=None, sample_size=None):
 
 if __name__ == '__main__':
     make_ava_csv(AVA_DATASET_DIR)
+    make_ava_csv_score(AVA_DATASET_DIR)

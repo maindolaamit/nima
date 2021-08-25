@@ -1,17 +1,21 @@
 import argparse
 import os
 
+import pandas as pd
+import scipy.stats as ss
+
 from nima.config import DATASET_DIR, MODEL_BUILD_TYPE, print_msg, INPUT_SHAPE, TID_DATASET_DIR, \
     CROP_SHAPE, AVA_DATASET_DIR, RESULTS_DIR
 from nima.model.data_generator import TestDataGenerator
-from nima.model.loss import earth_movers_distance, pearson_correlation, spearman_correlation
+from nima.model.loss import earth_movers_distance, mean_abs_percentage_ava, two_class_quality_acc, \
+    mean_abs_percentage_acc
 from nima.model.model_builder import NIMA, TechnicalModel, get_naming_prefix
 from nima.utils.ava_dataset_utils import get_ava_csv_score_df
-from nima.utils.tid_dataset_utils import get_mos_csv_df, TID_MAX_MEAN_SCORE
-import scipy.stats as ss
+from nima.utils.preprocess import get_mean_quality_score, normalize_ratings
+from nima.utils.tid_dataset_utils import get_mos_csv_df
 
 
-def test_aesthetic_model(p_model_name, p_dataset_dir=TID_DATASET_DIR, p_sample_size=300,
+def eval_aesthetic_model(p_model_name, p_dataset_dir=AVA_DATASET_DIR, p_sample_size=300,
                          p_weight_file=None, p_batch_size=32):
     from nima.utils.ava_dataset_utils import get_rating_columns
     assert os.path.isfile(p_weight_file), f"Invalid weights file {p_weight_file}"
@@ -23,10 +27,10 @@ def test_aesthetic_model(p_model_name, p_dataset_dir=TID_DATASET_DIR, p_sample_s
 
     # Load the dataset
     x_col, y_cols = 'image_id', get_rating_columns()
-    keep_columns = ['image_id', 'max_rating', 'mean_score'] + get_rating_columns()
+    # keep_columns = ['image_id', 'max_rating', 'mean_score'] + get_rating_columns()
     # Get the DataFrame
     ava_csv_df = get_ava_csv_score_df(dataset_dir)  # Get the AVA csv dataframe
-    ava_csv_df['mean_score'] = ava_csv_df['mean_score'] / 9.0  # Normalize mean
+    # ava_csv_df['mean_score'] = ava_csv_df['mean_score'] / 9.0  # Normalize mean
     # check if samples size is given
     sample_size = p_sample_size
     if p_sample_size is None or p_sample_size > len(ava_csv_df):
@@ -36,7 +40,7 @@ def test_aesthetic_model(p_model_name, p_dataset_dir=TID_DATASET_DIR, p_sample_s
     assert len(df_test) > 0, 'Empty dataframe'
 
     # form the model
-    print_msg("Testing Model...")
+    print_msg("Evaluating Model...")
     # Form the NIMA Aesthetic Model
     nima_aesthetic_cnn = NIMA(base_model_name=p_model_name, input_shape=INPUT_SHAPE,
                               crop_size=CROP_SHAPE, base_cnn_weight=None)
@@ -52,16 +56,32 @@ def test_aesthetic_model(p_model_name, p_dataset_dir=TID_DATASET_DIR, p_sample_s
                                        batch_size=p_batch_size, input_size=INPUT_SHAPE, )
 
     print_msg(f'Testing with Batch size:{test_batch_size}', 1)
-    eval_result, df_test = nima_aesthetic_cnn.evaluate_model(df_test, test_generator, prefix='freezed')
+    eval_result = nima_aesthetic_cnn.model.evaluate(test_generator)
+
+    print_msg(f"loss({nima_aesthetic_cnn.loss}) : {eval_result[0]} | "
+              f"accuracy({nima_aesthetic_cnn.metrics}) : {eval_result[1:]}", 1)
+    # predict the values from model
+    predictions = nima_aesthetic_cnn.model.predict(test_generator)
+    print_msg(predictions.shape)
 
     # view the accuracy
-    pred_columns = [column for column in df_test.columns.tolist() if column.startswith('pred')]
-    emd = earth_movers_distance(df_test[get_rating_columns()],
-                                df_test[pred_columns].drop(['pred_mean_score', 'pred_max_rating'], axis=1))
-    print_msg(f"For mean score - mse : {spearman_correlation}, mae : {pearson_correlation}")
-    print_msg(f"For ratings - emd : {emd}")
-    print_msg(df_test.iloc[0])
-    return spearman_correlation, pearson_correlation, df_test
+    pred_columns = [f'pred_{column}' for column in y_cols]
+    df_pred = pd.DataFrame(predictions, columns=pred_columns)
+    df_pred['pred_mean_score'] = df_pred[pred_columns].apply(lambda x: get_mean_quality_score(normalize_ratings(x))
+                                                             , axis=1)
+    df_test = pd.concat([df_test, df_pred], axis=1)
+    spearmanr = ss.spearmanr(df_test['mean_score'].to_numpy(), df_test['pred_mean_score'].to_numpy())[0]
+    pearsonr = ss.pearsonr(df_test['mean_score'].to_numpy(), df_test['pred_mean_score'].to_numpy())[0]
+    emd = earth_movers_distance(df_test['mean_score'], df_test['pred_mean_score'])
+    two_class = two_class_quality_acc(df_test['mean_score'], df_test['pred_mean_score'])
+    map = mean_abs_percentage_acc(df_test['mean_score'], df_test['pred_mean_score'])
+    print_msg(f"spearman_correlation : {spearmanr},"
+              f" pearson_correlation : {pearsonr}"
+              f" Earth Movers Distance : {emd}"
+              f" Two class Quality : {two_class}"
+              f" Mean Absolute Percentage : {map}"
+              , 1)
+    return df_test[['image_id', 'mean_score', 'pred_mean_score']]
 
 
 def eval_technical_model(p_model_name, p_dataset_dir=TID_DATASET_DIR, p_sample_size=300,
@@ -118,6 +138,7 @@ def eval_technical_model(p_model_name, p_dataset_dir=TID_DATASET_DIR, p_sample_s
     print_msg(f'Testing with Batch size:{test_batch_size}', 1)
     # evaluate model
     eval_result = nima_tech_cnn.model.evaluate(test_generator)
+
     print_msg(f"loss({nima_tech_cnn.loss}) : {eval_result[0]} | "
               f"accuracy({nima_tech_cnn.metrics}) : {eval_result[1:]}", 1)
     # predict the values from model
@@ -127,15 +148,12 @@ def eval_technical_model(p_model_name, p_dataset_dir=TID_DATASET_DIR, p_sample_s
     # view the accuracy
     spearmanr = ss.spearmanr(df_test['mean'].to_numpy(), df_test['pred_mean'].to_numpy())[0]
     pearsonr = ss.pearsonr(df_test['mean'].to_numpy(), df_test['pred_mean'].to_numpy())[0]
-    df_test['pearson_correlation'] = pearsonr
-    df_test['spearman_correlation'] = spearmanr
 
     predict_df_filename = get_naming_prefix(nima_tech_cnn.model_type, nima_tech_cnn.model_class_name,
                                             prefix='eval') + '_pred.csv'
     predict_file = os.path.join(RESULTS_DIR, predict_df_filename)
     print_msg(f'saving predictions to {predict_file}', 1)
     df_test.to_csv(predict_file, index=False)
-    print_msg(df_test.iloc[0])
     return pearsonr, spearmanr, df_test
 
 
@@ -174,7 +192,7 @@ if __name__ == '__main__':
 
     # Evaluate the aesthetic model
     if arg_model_type in [MODEL_BUILD_TYPE[0]]:
-        aes_train_result_df, aes_test_df, aes_weight_file = test_aesthetic_model(p_model_name=arg_model_name,
+        aes_train_result_df, aes_test_df, aes_weight_file = eval_aesthetic_model(p_model_name=arg_model_name,
                                                                                  p_dataset_dir=arg_dataset_dir,
                                                                                  p_sample_size=arg_sample_size,
                                                                                  p_batch_size=arg_batch_size,
