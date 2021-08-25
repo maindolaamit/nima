@@ -1,12 +1,13 @@
 import os
 import warnings
+from glob import glob
 
 from PIL import Image, ImageOps, ImageFile
 from numpy.random import randint
 from tensorflow.keras.preprocessing.image import img_to_array
 from tensorflow.keras.preprocessing.image import load_img
 
-from nima.config import INPUT_SHAPE, AVA_DATASET_IMAGES_DIR
+from nima.config import INPUT_SHAPE, AVA_DATASET_IMAGES_DIR, PROJECT_ROOT_DIR
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -77,13 +78,16 @@ def is_valid_image(filename):
         return True
 
 
-def clean_dataset(img_directory):
-    from glob import glob
-
-    # files = os.listdir(img_directory)
+def get_images(img_directory):
     files = glob(os.path.join(img_directory, '*.jpg'))
+    # files += glob(os.path.join(img_directory, '*.JPG'))
     files += glob(os.path.join(img_directory, '*.bmp'))
     files += glob(os.path.join(img_directory, '*.BMP'))
+    return files
+
+
+def clean_dataset(img_directory):
+    files = get_images(img_directory)
 
     invalid_files = [file for file in files if not is_valid_image(file)]
     print(f"Total number of invalid files : {len(invalid_files)}")
@@ -92,5 +96,18 @@ def clean_dataset(img_directory):
         os.remove(file)
 
 
+def rename_images(image_dir):
+    images = get_images(image_dir)
+    if len(images) == 0:
+        return
+
+    for i, image in enumerate(images):
+        filename = os.path.basename(image)
+        new_name = os.path.join(image_dir, f"{i+1}.jpg")
+        print(f"renamed '{filename}' to '{new_name}'")
+        os.rename(image, new_name)
+
+
 if __name__ == '__main__':
-    clean_dataset(AVA_DATASET_IMAGES_DIR)
+    # clean_dataset(AVA_DATASET_IMAGES_DIR)
+    rename_images(os.path.join(PROJECT_ROOT_DIR, 'test'))

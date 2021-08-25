@@ -20,6 +20,10 @@
     "model_class": "ResNet50V2"
   },
   "mobilenet": {
+    "model_package": "tensorflow.keras.applications.mobilenet",
+    "model_class": "MobileNet"
+  },
+  "mobilenet_v2": {
     "model_package": "tensorflow.keras.applications.mobilenet_v2",
     "model_class": "MobileNetV2"
   },

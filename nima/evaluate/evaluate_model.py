@@ -2,12 +2,13 @@ import argparse
 import os
 
 from nima.config import DATASET_DIR, MODEL_BUILD_TYPE, print_msg, INPUT_SHAPE, TID_DATASET_DIR, \
-    CROP_SHAPE, AVA_DATASET_DIR
+    CROP_SHAPE, AVA_DATASET_DIR, RESULTS_DIR
 from nima.model.data_generator import TestDataGenerator
 from nima.model.loss import earth_movers_distance, pearson_correlation, spearman_correlation
-from nima.model.model_builder import NIMA, TechnicalModel
+from nima.model.model_builder import NIMA, TechnicalModel, get_naming_prefix
 from nima.utils.ava_dataset_utils import get_ava_csv_score_df
-from nima.utils.tid_dataset_utils import get_mos_csv_df
+from nima.utils.tid_dataset_utils import get_mos_csv_df, TID_MAX_MEAN_SCORE
+import scipy.stats as ss
 
 
 def test_aesthetic_model(p_model_name, p_dataset_dir=TID_DATASET_DIR, p_sample_size=300,
@@ -66,7 +67,7 @@ def test_aesthetic_model(p_model_name, p_dataset_dir=TID_DATASET_DIR, p_sample_s
 def eval_technical_model(p_model_name, p_dataset_dir=TID_DATASET_DIR, p_sample_size=300,
                          p_weight_file=None, p_batch_size=32):
     """
-    Trains an aesthetic model for the given parameters.
+    Trains an technical model for the given parameters.
     :param p_weight_file:
     :param p_model_name: Model for evaluation.
     :param p_dataset_dir: TID dataset path, used when test_df is not passed.
@@ -115,14 +116,27 @@ def eval_technical_model(p_model_name, p_dataset_dir=TID_DATASET_DIR, p_sample_s
 
     # Get the prediction
     print_msg(f'Testing with Batch size:{test_batch_size}', 1)
-    eval_result, df_test = nima_tech_cnn.evaluate_model(df_test, test_generator)
+    # evaluate model
+    eval_result = nima_tech_cnn.model.evaluate(test_generator)
+    print_msg(f"loss({nima_tech_cnn.loss}) : {eval_result[0]} | "
+              f"accuracy({nima_tech_cnn.metrics}) : {eval_result[1:]}", 1)
+    # predict the values from model
+    predictions = nima_tech_cnn.model.predict(test_generator)
+    df_test['pred_mean'] = predictions
 
     # view the accuracy
-    spearman_correlation = spearman_correlation(df_test['mean'].to_numpy(), df_test['pred_mean'].to_numpy())
-    pearson_correlation = pearson_correlation(df_test['mean'].to_numpy(), df_test['pred_mean'].to_numpy())
-    print_msg(f"pearson_correlation : {pearson_correlation}, spearman_correlation : {spearman_correlation}")
+    spearmanr = ss.spearmanr(df_test['mean'].to_numpy(), df_test['pred_mean'].to_numpy())[0]
+    pearsonr = ss.pearsonr(df_test['mean'].to_numpy(), df_test['pred_mean'].to_numpy())[0]
+    df_test['pearson_correlation'] = pearsonr
+    df_test['spearman_correlation'] = spearmanr
+
+    predict_df_filename = get_naming_prefix(nima_tech_cnn.model_type, nima_tech_cnn.model_class_name,
+                                            prefix='eval') + '_pred.csv'
+    predict_file = os.path.join(RESULTS_DIR, predict_df_filename)
+    print_msg(f'saving predictions to {predict_file}', 1)
+    df_test.to_csv(predict_file, index=False)
     print_msg(df_test.iloc[0])
-    return pearson_correlation, spearman_correlation, df_test
+    return pearsonr, spearmanr, df_test
 
 
 if __name__ == '__main__':

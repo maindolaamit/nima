@@ -285,7 +285,7 @@ class TechnicalModel:
         self.base_model = base_cnn(input_shape=self.input_shape, weights=self.base_cnn_weight,
                                    pooling='avg', include_top=False)
         x = Dropout(dropout)(self.base_model.output)
-        x = Dense(128, activation='tanh')(x)
+        x = Dense(1000, activation='tanh')(x)
         x = Dense(1, activation='linear')(x)
 
         self.model = Model(self.base_model.input, x)
