@@ -1,13 +1,14 @@
+import math
 import os
 import warnings
 from glob import glob
 
-from PIL import Image, ImageOps, ImageFile
+from PIL import Image, ImageOps, ImageFile, ImageFilter
 from numpy.random import randint
 from tensorflow.keras.preprocessing.image import img_to_array
 from tensorflow.keras.preprocessing.image import load_img
 
-from nima.config import INPUT_SHAPE, AVA_DATASET_IMAGES_DIR, PROJECT_ROOT_DIR
+from nima.config import INPUT_SHAPE, AVA_DATASET_IMAGES_DIR, PROJECT_ROOT_DIR, print_msg
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -104,11 +105,48 @@ def rename_images(image_dir):
 
     for i, image in enumerate(images):
         filename = os.path.basename(image)
-        new_name = os.path.join(image_dir, f"{i+1}.jpg")
+        new_name = os.path.join(image_dir, f"{i + 1}.jpg")
         print(f"renamed '{filename}' to '{new_name}'")
         os.rename(image, new_name)
 
 
+def resize_images(images_dir, override_orignal=True):
+    images = get_images(images_dir)
+    for img in images:
+        filename = os.path.basename(img)
+        image = Image.open(img)
+        size = image.size
+        print(filename, size)
+        if size[0] < 1000:
+            print_msg(f"skipping resize for {filename}", 1)
+        else:
+            new_file = filename.split(".")[0] + "_resized.jpg"
+            if override_orignal:
+                new_file = filename
+
+            w, h = math.ceil(size[0] / 4), math.ceil(size[0] / 4)
+            image.resize((w, h)).save(os.path.join(images_dir, new_file))
+
+
+def distort_images(images_dir):
+    images = get_images(images_dir)
+    for img in images:
+        filename = os.path.basename(img)
+        image = Image.open(img)
+        # resize image if big
+        if image.size[0] > 1000:
+            size = image.size
+            image.resize((math.ceil(size[0] / 4), math.ceil(size[1] / 4)))
+
+        # Add 3 level of blurness
+        for i in range(1, 4):
+            newfile = filename.split(".")[0] + f"_blur{i}.jpg"
+            new_image = image.filter(ImageFilter.GaussianBlur(i))
+            new_image.save(os.path.join(images_dir, newfile))
+
+
 if __name__ == '__main__':
     # clean_dataset(AVA_DATASET_IMAGES_DIR)
-    rename_images(os.path.join(PROJECT_ROOT_DIR, 'test'))
+    # rename_images(os.path.join(PROJECT_ROOT_DIR, 'test'))
+    # resize_images(os.path.join(PROJECT_ROOT_DIR, 'test'))
+    distort_images(os.path.join(PROJECT_ROOT_DIR, 'test_distort'))
